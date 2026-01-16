@@ -4,12 +4,12 @@
 \alias{bbnice_anova_table}
 \title{Create APA-style mixed-effects ANOVA table with partial omega-squared and CIs}
 \usage{
-bbnice_anova_table(anova_table, title = "Mixed-Effects ANOVA")
+bbnice_anova_table(anova_table, title = "ANOVA Table")
 }
 \arguments{
 \item{anova_table}{the anova table produced by make_anova_table()}
 
-\item{title}{Character string for the table title (default: "Mixed-Effects ANOVA")}
+\item{title}{Character string for the table title (default: "ANOVA table")}
 }
 \value{
 A flextable object (from nice_table)

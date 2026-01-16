@@ -8,8 +8,6 @@ bbmake_anova_table(model)
 }
 \arguments{
 \item{model}{A fitted lmer model (from lmerTest)}
-
-\item{title}{Character string for the table title (default: "Mixed-Effects ANOVA")}
 }
 \value{
 A data.frame object
