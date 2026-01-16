@@ -1,14 +1,14 @@
-#' Create APA-style mixed-effects ANOVA table with partial omega-squared and CIs
+#' Create mixed-effects ANOVA table with partial omega-squared and CIs
 #'
 #' @param model A fitted lmer model (from lmerTest)
 #' @param title Character string for the table title (default: "Mixed-Effects ANOVA")
 #'
-#' @return A flextable object (from nice_table)
+#' @return A data.frame object
 #' @export
 #'
 #' @examples
-#' stat_table <- make_anova_table(model, title = "mPFC Delta AUC Analysis")
-make_anova_table <- function(model, title = "Mixed-Effects ANOVA") {
+#' stat_table <- bbmake_anova_table(model)
+bbmake_anova_table <- function(model) {
 
   aov_tab <- anova(model) |>
     as.data.frame() |>
@@ -31,11 +31,6 @@ make_anova_table <- function(model, title = "Mixed-Effects ANOVA") {
     dplyr::select(Effect, NumDF, DenDF, `F value`, `Pr(>F)`,
                   `Omega2 (partial)`, `Omega2 (95% CI)`)
 
-  rempsyc::nice_table(
-    combined_table,
-    col.format.p = 5,
-    title = c("", title),
-    note = c(" * p < .05, ** p < .01, *** p < .001")
-    ) |>
-    flextable::autofit()
+  combined_table
+
 }
