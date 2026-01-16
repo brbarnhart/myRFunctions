@@ -12,11 +12,7 @@ make_anova_table <- function(model, title = "Mixed-Effects ANOVA") {
 
   aov_tab <- anova(model) |>
     as.data.frame() |>
-    tibble::rownames_to_column(var = "Effect") |>
-    dplyr::mutate(
-      Sig. = dplyr::case_when(...),
-      `Pr(>F)` = stats::format.pval(`Pr(>F)`, digits = 3, eps = .001)
-    )
+    tibble::rownames_to_column(var = "Effect")
 
   omega_tab <- effectsize::omega_squared(model, partial = TRUE) |>
     as.data.frame() |>
@@ -32,10 +28,12 @@ make_anova_table <- function(model, title = "Mixed-Effects ANOVA") {
     dplyr::select(Effect, `Omega2 (partial)`, `Omega2 (95% CI)`)
 
   combined_table <- dplyr::left_join(aov_tab, omega_tab, by = "Effect") |>
-    dplyr::select(...)
+    dplyr::select(Effect, NumDF, DenDF, `F value`, `Pr(>F)`,
+                  `Omega2 (partial)`, `Omega2 (95% CI)`)
 
   rempsyc::nice_table(
     combined_table,
+    col.format.p = 5,
     title = c("", title),
     note = c("Note. . p < .1, * p < .05, ** p < .01, *** p < .001")
     ) |>
