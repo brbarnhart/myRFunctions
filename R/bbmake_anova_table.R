@@ -1,7 +1,6 @@
 #' Create mixed-effects ANOVA table with partial omega-squared and CIs
 #'
 #' @param model A fitted lmer model (from lmerTest)
-#' @param title Character string for the table title (default: "Mixed-Effects ANOVA")
 #'
 #' @return A data.frame object
 #' @export
