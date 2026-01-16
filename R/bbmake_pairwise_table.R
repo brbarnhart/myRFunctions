@@ -12,7 +12,7 @@ bbmake_pairwise_table <- function(pw) {
   pw_summary <- pw |>
     summary() |>
     as_tibble() |>
-    rename(`mean diference` = extimate) |>
+    rename(`mean diference` = estimate) |>
     select(contrast:df, t.ratio, p.value) |>
     rowid_to_column()
 
