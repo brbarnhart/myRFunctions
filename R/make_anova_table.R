@@ -35,7 +35,7 @@ make_anova_table <- function(model, title = "Mixed-Effects ANOVA") {
     combined_table,
     col.format.p = 5,
     title = c("", title),
-    note = c("Note. . p < .1, * p < .05, ** p < .01, *** p < .001")
+    note = c(" * p < .05, ** p < .01, *** p < .001")
     ) |>
     flextable::autofit()
 }
