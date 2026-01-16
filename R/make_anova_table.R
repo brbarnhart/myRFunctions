@@ -10,7 +10,7 @@
 #' stat_table <- make_anova_table(model, title = "mPFC Delta AUC Analysis")
 make_anova_table <- function(model, title = "Mixed-Effects ANOVA") {
 
-  aov_tab <- lmerTest::anova(model) |>
+  aov_tab <- anova(model) |>
     as.data.frame() |>
     tibble::rownames_to_column(var = "Effect") |>
     dplyr::mutate(
