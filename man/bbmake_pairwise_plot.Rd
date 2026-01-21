@@ -4,7 +4,15 @@
 \alias{bbmake_pairwise_plot}
 \title{Create pairwise comparison table with Cohen's d and CIs}
 \usage{
-bbmake_pairwise_plot(emm, pw_table, formula, group1, group2, y.adjust = 0)
+bbmake_pairwise_plot(
+  emm,
+  pw_table,
+  formula,
+  group1,
+  group2,
+  aesthetic = aes(x = xvar, y = yvar),
+  y.adjust = 0
+)
 }
 \arguments{
 \item{emm}{An emmGrid object (output from emmeans())}
@@ -16,6 +24,8 @@ bbmake_pairwise_plot(emm, pw_table, formula, group1, group2, y.adjust = 0)
 \item{group1}{"String" First group for significance markers for pairwise comparisons}
 
 \item{group2}{"String" Second group for significance markers for pairwise comparisons}
+
+\item{aesthetic}{Aesthetic used for the plot. Default = aes(x = xvar, y = yvar)}
 
 \item{y.adjust}{Float or list of floats representing the y adjustment for each significance marker}
 }

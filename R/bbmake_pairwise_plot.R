@@ -5,11 +5,20 @@
 #' @param formula Formula object used to create emm
 #' @param group1 "String" First group for significance markers for pairwise comparisons
 #' @param group2 "String" Second group for significance markers for pairwise comparisons
+#' @param aesthetic Aesthetic used for the plot. Default = aes(x = xvar, y = yvar)
 #' @param y.adjust Float or list of floats representing the y adjustment for each significance marker
 #'
 #' @return A ggplot2 plot object
 #' @export
-bbmake_pairwise_plot <- function(emm, pw_table, formula, group1, group2, y.adjust = 0) {
+bbmake_pairwise_plot <- function(
+  emm,
+  pw_table,
+  formula,
+  group1,
+  group2,
+  aesthetic = aes(x = xvar, y = yvar),
+  y.adjust = 0
+) {
   # Convert to data frame for plotting
   emm_df <- as.data.frame(emm) |>
     rename(emmean = emmean,
@@ -37,8 +46,7 @@ bbmake_pairwise_plot <- function(emm, pw_table, formula, group1, group2, y.adjus
                      CIs = TRUE,
                      plotit = FALSE)
 
-  p <- plot_data |>
-    ggplot(aes(x = xvar, y = yvar)) +
+  p <- ggplot(plot_data, aesthetic) +
     geom_hline(yintercept = 0, linetype = "solid", color = "gray50", linewidth = 0.6) +
     geom_line() +
     geom_point(size = 4) +
