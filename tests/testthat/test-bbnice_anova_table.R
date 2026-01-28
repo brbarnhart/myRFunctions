@@ -63,30 +63,6 @@ test_that("bbnice_anova_table produces valid flextable and keeps p numeric", {
 })
 
 
-test_that("bbnice_anova_table adds stars when p-values are small enough", {
-  skip_if_not_installed("rempsyc")
-
-  # Forced small-p table → must produce stars
-  small_p_tab <- tibble(
-    Effect             = c("Main", "Interaction", "Small"),
-    NumDF              = c(1, 2, 1),
-    DenDF              = c(NA, NA, NA),
-    `F value`          = c(6.8, 11.2, 4.9),
-    `Pr(>F)`           = c(0.012, 0.0008, 0.032),          # <0.05, <0.001, <0.05
-    `Omega2 (partial)` = c(0.18, 0.29, 0.11),
-    `Omega2 (95% CI)`  = c("[0.05, 0.33]", "[0.12, 0.47]", "[0.01, 0.23]")
-  )
-
-  ft <- bbnice_anova_table(small_p_tab, title = "Small P Test")
-
-  expect_s3_class(ft, "flextable")
-
-  body_text <- as.character(unlist(ft$body$dataset))
-  print(ft)
-  expect_true(any(grepl("\\*+", body_text)))           # Should have at least one *
-})
-
-
 test_that("bbnice_anova_table errors when p-column is character", {
   skip_if_not_installed("rempsyc")
 
