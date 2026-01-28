@@ -1,3 +1,20 @@
+#' Create ANOVA table with partial omega-squared and CIs
+#' (supports both lm() and lmer() / lmerModLmerTest models)
+#'
+#' @param model A fitted model — either `lm()` or `lmer()`/`lmerMod*`
+#'
+#' @return A data.frame / tibble with ANOVA results + partial ω²
+#' @export
+#'
+#' @examples
+#' # Ordinary linear model
+#' mod_lm <- lm(mpg ~ factor(cyl) + wt, data = mtcars)
+#' bbmake_anova_table(mod_lm)
+#'
+#' # Mixed model (with lmerTest for p-values / DenDF)
+#' library(lmerTest)
+#' mod_lmer <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy)
+#' bbmake_anova_table(mod_lmer)
 bbmake_anova_table <- function(model) {
 
   # Get ANOVA table
@@ -45,13 +62,7 @@ bbmake_anova_table <- function(model) {
       `Omega2 (partial)`,
       `Omega2 (95% CI)`
     ) |>
-    # Optional: return as tibble for consistency
     tibble::as_tibble()
-
-  # Format p-values (safe even if some are NA)
-  if ("Pr(>F)" %in% names(combined_table)) {
-    combined_table$`Pr(>F)` <- format.pval(combined_table$`Pr(>F)`, digits = 3, eps = 0.001)
-  }
 
   combined_table
 }
