@@ -4,8 +4,7 @@ library(testthat)
 library(emmeans)
 library(lme4)
 library(lmerTest)     # for anova() with p-values
-library(dplyr)
-library(ggplot2)
+library(tidyverse)
 library(ggpubr)       # for stat_pvalue_manual
 
 # We'll assume the function is already available in the environment
@@ -68,8 +67,8 @@ test_that("bbmake_pairwise_plot returns a ggplot object", {
     emm      = emm,
     pw_table = pw_table,
     formula  = ~ Stim | Group,
-    group1   = "Low",
-    group2   = "Med",
+    # group1   = "Low",
+    # group2   = "Med",
     y.adjust = 3
   )
 
@@ -88,8 +87,8 @@ test_that("bbmake_pairwise_plot returns a ggplot object", {
       emm      = emm,
       pw_table = pw_table,
       formula  = ~ Stim | Group,
-      group1   = "Med",
-      group2   = "High",
+      # group1   = "Med",
+      # group2   = "High",
       y.adjust = 5
     )
   )
@@ -113,8 +112,8 @@ test_that("bbmake_pairwise_plot handles multiple contrasts", {
       emm      = emm,
       pw_table = pw_table_multi,
       formula  = ~ Stim | Group,
-      group1   = c("Low", "Med"),
-      group2   = c("Med", "High"),
+      # group1   = c("Low", "Med"),
+      # group2   = c("Med", "High"),
       y.adjust = c(2, 5)   # test vector input (note: your current code uses only first value)
     )
   )

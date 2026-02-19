@@ -14,8 +14,8 @@ bbmake_pairwise_plot <- function(
   emm,
   pw_table,
   formula,
-  group1,
-  group2,
+  # group1,
+  # group2,
   aesthetic = aes(x = xvar, y = yvar),
   y.adjust = 0
 ) {
@@ -29,8 +29,8 @@ bbmake_pairwise_plot <- function(
   pw_contrasts <- pw_table |>
     as.data.frame() |>
     mutate(
-      group1 = group1,
-      group2 = group2,  # order matches your output
+      group1 = str_trim(str_split_i(contrast, " - ", 1)),
+      group2 = str_trim(str_split_i(contrast, " - ", 2)),
       p.signif = case_when(
         p.value < 0.001 ~ "***",
         p.value < 0.01  ~ "**",
