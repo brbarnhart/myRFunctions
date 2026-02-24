@@ -74,7 +74,7 @@ test_that("bbmake_pairwise_plot returns a ggplot object", {
 
   expect_s3_class(p, "ggplot")
   expect_true(inherits(p, "gg"))
-  expect_true(length(p$layers) >= 4)          # at least hline + line + point + errorbar
+  expect_true(length(p$layers) >= 4) # at least hline + line + point + errorbar
 
   # Optional: check that key geoms are present (loose check)
   layer_classes <- sapply(p$layers, function(l) class(l$geom)[1])
@@ -93,8 +93,6 @@ test_that("bbmake_pairwise_plot returns a ggplot object", {
     )
   )
 
-  # You can add more specific expectations later, e.g.
-  # expect_equal(p$labels$y, "emmean")   # or whatever your yvar is called
 })
 
 
@@ -114,7 +112,8 @@ test_that("bbmake_pairwise_plot handles multiple contrasts", {
       formula  = ~ Stim | Group,
       # group1   = c("Low", "Med"),
       # group2   = c("Med", "High"),
-      y.adjust = c(2, 5)   # test vector input (note: your current code uses only first value)
+      y.adjust = c(2, 5)  # test vector input
+                          # (note: your current code uses only first value)
     )
   )
 })
