@@ -1,4 +1,4 @@
-#' Create pairwise comparison table (now supports LM/LMM + GLM/GLMM)
+#' Create pairwise comparison table (now supports LM/LMM + GLM/GLMM + type = "response")
 #'
 #' Automatically chooses the right effect size:
 #' • Gaussian (lm / lmer): Mean Difference + Cohen's d [95% CI]
@@ -20,9 +20,13 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
     }
   }
 
-  # Full summary with CIs
+  # Full summary with CIs (infer = TRUE guarantees confidence bounds)
   pw_summary <- summary(pw, infer = c(TRUE, TRUE)) |>
     as_tibble()
+
+  # Robust CI column detection (handles type = "link" vs type = "response")
+  lcl_col <- ifelse("lower.CL" %in% names(pw_summary), "lower.CL", "asymp.LCL")
+  ucl_col <- ifelse("upper.CL" %in% names(pw_summary), "upper.CL", "asymp.UCL")
 
   has_ratio <- "ratio"      %in% colnames(pw_summary)
   has_odds  <- "odds.ratio" %in% colnames(pw_summary)
@@ -32,7 +36,7 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
     pw_table <- pw_summary |>
       mutate(
         `Rate Ratio` = round(ratio, 2),
-        `RR 95% CI`  = sprintf("[%.2f, %.2f]", lower.CL, upper.CL),
+        `RR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]]),
         `% Change`   = sprintf("%+.1f%%", 100 * (ratio - 1))
       ) |>
       select(contrast, `Rate Ratio`, `RR 95% CI`, `% Change`,
@@ -43,7 +47,7 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
     pw_table <- pw_summary |>
       mutate(
         `Odds Ratio` = round(odds.ratio, 2),
-        `OR 95% CI`  = sprintf("[%.2f, %.2f]", lower.CL, upper.CL)
+        `OR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]])
       ) |>
       select(contrast, `Odds Ratio`, `OR 95% CI`,
              SE, any_of(c("z.ratio", "t.ratio")), p.value)
