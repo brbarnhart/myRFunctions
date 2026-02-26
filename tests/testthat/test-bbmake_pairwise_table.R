@@ -147,7 +147,7 @@ test_that("bbmake_pairwise_table output works with bbnice_pairwise_table and has
   skip_if_not_installed("flextable")
 
   mods <- setup_pairwise_models()
-  emm <- emmeans(mods$nb, ~ Sex | Diet, type = "response")
+  emm <- emmeans(mods$nb, ~ Sex * Diet, type = "response")
   pw  <- pairs(emm, reverse = TRUE, infer = TRUE)
 
   tab <- bbmake_pairwise_table(pw)

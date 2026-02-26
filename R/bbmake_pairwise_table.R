@@ -38,9 +38,10 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
         `Rate Ratio` = round(ratio, 2),
         `RR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]]),
         `% Change`   = sprintf("%+.1f%%", 100 * (ratio - 1))
-      ) |>
-      select(contrast, `Rate Ratio`, `RR 95% CI`, `% Change`,
-             SE, any_of(c("z.ratio", "t.ratio")), p.value)
+      )
+    # |>
+    #   select(contrast, `Rate Ratio`, `RR 95% CI`, `% Change`,
+    #          SE, any_of(c("z.ratio", "t.ratio")), p.value)
 
   } else if (has_odds) {
     # ==================== BINARY / LOGISTIC ====================
@@ -48,9 +49,10 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
       mutate(
         `Odds Ratio` = round(odds.ratio, 2),
         `OR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]])
-      ) |>
-      select(contrast, `Odds Ratio`, `OR 95% CI`,
-             SE, any_of(c("z.ratio", "t.ratio")), p.value)
+      )
+    # |>
+    #   select(contrast, `Odds Ratio`, `OR 95% CI`,
+    #          SE, any_of(c("z.ratio", "t.ratio")), p.value)
 
   } else {
     # ==================== GAUSSIAN MODELS (lm / lmer) ====================
