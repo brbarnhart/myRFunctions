@@ -1,14 +1,13 @@
-#' Create pairwise comparison table (now supports LM/LMM + GLM/GLMM + type = "response")
+#' Create pairwise comparison table (now preserves by= grouping columns)
 #'
-#' Automatically chooses the right effect size:
-#' • Gaussian (lm / lmer): Mean Difference + Cohen's d [95% CI]
-#' • Count / rate models (glmmTMB negative binomial / Poisson with `type = "response"`): Rate Ratio + % Change + 95% CI
-#' • Binary / logistic: Odds Ratio + 95% CI
+#' Automatically chooses the right effect size and keeps any `by=` grouping
+#' variables from emmeans (e.g. Sex, Diet, Satiety) so you know which
+#' combination each contrast belongs to.
 #'
 #' @param pw An `emmGrid` object (output from `pairs(emm)`)
 #' @param model Original fitted model (optional – usually auto-detected)
 #'
-#' @return A tibble
+#' @return A tibble with grouping columns first, then contrast + effect sizes
 #' @export
 bbmake_pairwise_table <- function(pw, model = NULL) {
 
@@ -20,11 +19,14 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
     }
   }
 
-  # Full summary with CIs (infer = TRUE guarantees confidence bounds)
+  # Detect by-grouping variables (e.g. Sex, Diet, Satiety when you used by = )
+  by_vars <- if (!is.null(pw@misc$by.vars)) pw@misc$by.vars else character(0)
+
+  # Full summary with CIs
   pw_summary <- summary(pw, infer = c(TRUE, TRUE)) |>
     as_tibble()
 
-  # Robust CI column detection (handles type = "link" vs type = "response")
+  # Robust CI column detection (handles type = "link" vs "response")
   lcl_col <- ifelse("lower.CL" %in% names(pw_summary), "lower.CL", "asymp.LCL")
   ucl_col <- ifelse("upper.CL" %in% names(pw_summary), "upper.CL", "asymp.UCL")
 
@@ -32,16 +34,15 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
   has_odds  <- "odds.ratio" %in% colnames(pw_summary)
 
   if (has_ratio) {
-    # ==================== COUNT MODELS (NB / Poisson GLMM) ====================
+    # ==================== COUNT MODELS (NB / Poisson) ====================
     pw_table <- pw_summary |>
       mutate(
         `Rate Ratio` = round(ratio, 2),
         `RR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]]),
         `% Change`   = sprintf("%+.1f%%", 100 * (ratio - 1))
-      )
-    # |>
-    #   select(contrast, `Rate Ratio`, `RR 95% CI`, `% Change`,
-    #          SE, any_of(c("z.ratio", "t.ratio")), p.value)
+      ) |>
+      select(any_of(by_vars), contrast, `Rate Ratio`, `RR 95% CI`, `% Change`,
+             SE, any_of(c("z.ratio", "t.ratio")), p.value)
 
   } else if (has_odds) {
     # ==================== BINARY / LOGISTIC ====================
@@ -49,20 +50,20 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
       mutate(
         `Odds Ratio` = round(odds.ratio, 2),
         `OR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]])
-      )
-    # |>
-    #   select(contrast, `Odds Ratio`, `OR 95% CI`,
-    #          SE, any_of(c("z.ratio", "t.ratio")), p.value)
+      ) |>
+      select(any_of(by_vars), contrast, `Odds Ratio`, `OR 95% CI`,
+             SE, any_of(c("z.ratio", "t.ratio")), p.value)
 
   } else {
-    # ==================== GAUSSIAN MODELS (lm / lmer) ====================
+    # ==================== GAUSSIAN MODELS ====================
     pw_table <- pw_summary |>
+      select(any_of(by_vars), everything()) |>
       rename(`Mean Difference` = estimate) |>
-      select(contrast, `Mean Difference`, SE, any_of("df"),
+      select(any_of(by_vars), contrast, `Mean Difference`, SE, any_of("df"),
              any_of(c("t.ratio", "z.ratio")), p.value) |>
       rowid_to_column("rowid")
 
-    # Cohen's d (only for Gaussian)
+    # Cohen's d
     if (!is.null(model)) {
       tryCatch({
         cohen_d <- emmeans::eff_size(
@@ -89,5 +90,5 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
   # Final polishing
   pw_table |>
     mutate(contrast = str_trim(contrast)) |>
-    arrange(p.value)
+    arrange(across(any_of(by_vars)), p.value)   # sort by grouping then p-value
 }
