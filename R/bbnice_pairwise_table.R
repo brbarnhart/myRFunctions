@@ -16,7 +16,8 @@ bbnice_pairwise_table <- function(pw_table, title = "Pairwise Comparisons Table"
   }
 
   # Dynamically find the p-value column (robust to different table widths)
-  p_col <- which(names(pw_table) %in% c("p.value", "p", "Pr(>|z|)", "Pr(>|t|)"))[1]
+  possible_names <- c("p.value", "p", "Pr(>|z|)", "Pr(>|t|)")
+  p_col <- names(pw_table)[which(names(pw_table) %in% possible_names)[1]]
 
   # Fallback: any column whose name contains "p." or ends with ".p"
   if (is.na(p_col) || length(p_col) == 0) {
