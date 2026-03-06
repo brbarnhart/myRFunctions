@@ -108,14 +108,11 @@ test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response'
   expect_true(is.numeric(tab$`IRR`),
               info = "Rate Ratio column should be numeric")
   expect_true(is.numeric(tab$upper.CL),
-              info = "RR 95% CI columns should be numeric")
+              info = "RR 95% CI column should be numeric")
   expect_true(is.numeric(tab$lower.CL),
-              info = "RR 95% CI columns should be numeric")
-
-  # % Change format
-  bad_pct <- tab$`% Change`[!grepl("%$", tab$`% Change`)]
-  expect_true(length(bad_pct) == 0,
-              info = paste("Bad % Change strings:", paste(head(bad_pct, 5), collapse = "; ")))
+              info = "RR 95% CI column should be numeric")
+  expect_true(is.numeric(tab$`% Change`),
+              info = "% Change column should be numeric")
 })
 
 test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response' + by grouping", {

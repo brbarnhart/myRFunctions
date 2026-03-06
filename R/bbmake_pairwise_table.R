@@ -32,10 +32,10 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
   if (has_ratio) {
     pw_table <- pw_summary |>
       mutate(
-        IRR         = round(ratio, 2),
+        IRR        = round(ratio, 2),
         lower.CL   = .data[[lcl_col]],
         upper.CL   = .data[[ucl_col]],
-        `% Change` = sprintf("%+.1f%%", 100 * (ratio - 1))
+        `% Change` = 100 * (ratio - 1)
       ) |>
       select(any_of(by_vars), contrast, IRR, lower.CL, upper.CL,
              `% Change`, SE, any_of(c("z.ratio", "t.ratio")), p.value)
