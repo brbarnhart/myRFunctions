@@ -99,21 +99,18 @@ test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response'
   tab <- bbmake_pairwise_table(pw)
 
   # Column presence
-  required_cols <- c("contrast", "Rate Ratio", "RR 95% CI", "% Change")
+  required_cols <- c("contrast", "IRR", "lower.CL", "upper.CL", "% Change")
   missing_cols  <- setdiff(required_cols, names(tab))
   expect_true(length(missing_cols) == 0,
               info = paste("Missing columns:", paste(missing_cols, collapse = ", ")))
 
   # Type checks with helpful messages
-  expect_true(is.numeric(tab$`Rate Ratio`),
+  expect_true(is.numeric(tab$`IRR`),
               info = "Rate Ratio column should be numeric")
-  expect_true(is.character(tab$`RR 95% CI`),
-              info = "RR 95% CI column should be character strings")
-
-  # CI string format
-  bad_ci <- tab$`RR 95% CI`[!grepl("^\\[", tab$`RR 95% CI`)]
-  expect_true(length(bad_ci) == 0,
-              info = paste("Bad RR 95% CI strings:", paste(head(bad_ci, 5), collapse = "; ")))
+  expect_true(is.numeric(tab$upper.CL),
+              info = "RR 95% CI columns should be numeric")
+  expect_true(is.numeric(tab$lower.CL),
+              info = "RR 95% CI columns should be numeric")
 
   # % Change format
   bad_pct <- tab$`% Change`[!grepl("%$", tab$`% Change`)]
@@ -134,7 +131,7 @@ test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response'
   expect_s3_class(tab, "tbl_df")
   expect_true(nrow(tab) > 0,
               info = paste("Table was empty (0 rows)"))
-  expect_true(all(c("Rate Ratio", "RR 95% CI") %in% names(tab)))
+  expect_true(all(c("IRR", "lower.CL", "upper.CL") %in% names(tab)))
 })
 
 # ==================================================================

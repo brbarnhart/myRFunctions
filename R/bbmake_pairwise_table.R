@@ -32,20 +32,22 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
   if (has_ratio) {
     pw_table <- pw_summary |>
       mutate(
-        `Rate Ratio` = round(ratio, 2),
-        `RR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]]),
-        `% Change`   = sprintf("%+.1f%%", 100 * (ratio - 1))
+        IRR         = round(ratio, 2),
+        lower.CL   = .data[[lcl_col]],
+        upper.CL   = .data[[ucl_col]],
+        `% Change` = sprintf("%+.1f%%", 100 * (ratio - 1))
       ) |>
-      select(any_of(by_vars), contrast, `Rate Ratio`, `RR 95% CI`, `% Change`,
-             SE, any_of(c("z.ratio", "t.ratio")), p.value)
+      select(any_of(by_vars), contrast, IRR, lower.CL, upper.CL,
+             `% Change`, SE, any_of(c("z.ratio", "t.ratio")), p.value)
 
   } else if (has_odds) {
     pw_table <- pw_summary |>
       mutate(
         `Odds Ratio` = round(odds.ratio, 2),
-        `OR 95% CI`  = sprintf("[%.2f, %.2f]", .data[[lcl_col]], .data[[ucl_col]])
+        lower.CL   = .data[[lcl_col]],
+        upper.CL   = .data[[ucl_col]]
       ) |>
-      select(any_of(by_vars), contrast, `Odds Ratio`, `OR 95% CI`,
+      select(any_of(by_vars), contrast, `Odds Ratio`, lower.CL, upper.CL,
              SE, any_of(c("z.ratio", "t.ratio")), p.value)
 
   } else {
@@ -90,6 +92,6 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
 
   # Final polishing
   pw_table |>
-    mutate(contrast = str_trim(contrast)) |>
+    mutate(contrast = stringr::str_trim(contrast)) |>
     arrange(across(any_of(by_vars)), p.value)
 }
