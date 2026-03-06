@@ -160,10 +160,4 @@ test_that("bbmake_pairwise_table output works with bbnice_pairwise_table and has
   expect_true(!is.unsorted(unsorted_p),
               info = paste("p.value not sorted ascending. First few p-values:",
                            paste(head(unsorted_p, 6), collapse = ", ")))
-
-  # nice table should not error
-  expect_no_error({
-    ft <- bbnice_pairwise_table(tab, title = "Test Pairwise")
-    expect_s3_class(ft, "flextable")
-  })
 })

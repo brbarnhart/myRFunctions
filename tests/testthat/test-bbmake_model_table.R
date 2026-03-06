@@ -1,4 +1,4 @@
-# tests/testthat/test-bbmake_anova_table.R
+# tests/testthat/test-bbmake_model_table.R
 
 library(testthat)
 library(lme4)
@@ -56,11 +56,11 @@ setup_models <- function() {
 # Existing tests (unchanged)
 # ==================================================================
 
-test_that("bbmake_anova_table works on lm() model and returns expected structure", {
+test_that("bbmake_model_table works on lm() model and returns expected structure", {
   mods <- setup_models()
   model <- mods$lm
 
-  tab <- bbmake_anova_table(model)
+  tab <- bbmake_model_table(model)
 
   expect_s3_class(tab, "data.frame")
   expect_s3_class(tab, "tbl_df")
@@ -79,13 +79,13 @@ test_that("bbmake_anova_table works on lm() model and returns expected structure
 })
 
 
-test_that("bbmake_anova_table works on lmer() model and handles DenDF correctly", {
+test_that("bbmake_model_table works on lmer() model and handles DenDF correctly", {
   skip_if_not_installed("lmerTest")
 
   mods <- setup_models()
   model <- mods$lmer
 
-  tab <- bbmake_anova_table(model)
+  tab <- bbmake_model_table(model)
 
   expect_s3_class(tab, "data.frame")
   expect_s3_class(tab, "tbl_df")
@@ -103,7 +103,7 @@ test_that("bbmake_anova_table works on lmer() model and handles DenDF correctly"
 })
 
 
-test_that("bbmake_anova_table does not crash on boundary/singular lmer fit", {
+test_that("bbmake_model_table does not crash on boundary/singular lmer fit", {
   skip_if_not_installed("lmerTest")
 
   mods <- setup_models()
@@ -116,7 +116,7 @@ test_that("bbmake_anova_table does not crash on boundary/singular lmer fit", {
   )
 
   expect_no_error({
-    tab <- bbmake_anova_table(mod_singular)
+    tab <- bbmake_model_table(mod_singular)
   })
   expect_true(is.data.frame(tab))
   expect_true(nrow(tab) > 0)
@@ -127,13 +127,13 @@ test_that("bbmake_anova_table does not crash on boundary/singular lmer fit", {
 # NEW TESTS: glmmTMB / negative binomial branch
 # ==================================================================
 
-test_that("bbmake_anova_table works on glmmTMB negative binomial model", {
+test_that("bbmake_model_table works on glmmTMB negative binomial model", {
   skip_if_not_installed("glmmTMB")
 
   mods <- setup_models()
   model <- mods$nb
 
-  tab <- bbmake_anova_table(model)
+  tab <- bbmake_model_table(model)
 
   # Basic structure
   expect_s3_class(tab, "data.frame")
@@ -142,14 +142,12 @@ test_that("bbmake_anova_table works on glmmTMB negative binomial model", {
 
   # GLMM-specific columns
   expected_cols <- c(
-    "Effect", "NumDF", "Chisq value", "Pr(>Chisq)",
-    "IRR", "IRR 95% CI"
+    "Effect", "z", "IRR", "CI_low", "CI_high", "% Change", "Pr(>z)"
   )
   expect_true(all(expected_cols %in% names(tab)))
 
   # IRR columns should be present and sensible
   expect_true(is.numeric(tab$IRR))
-  expect_true(is.character(tab$`IRR 95% CI`))
   expect_true(any(!is.na(tab$IRR)))          # at least some IRRs
 
   # Term-name cleaning worked (main effects and interactions should be short)
@@ -166,13 +164,13 @@ test_that("bbmake_anova_table works on glmmTMB negative binomial model", {
 })
 
 
-test_that("bbmake_anova_table glmmTMB branch returns clean IRR values for main effects", {
+test_that("bbmake_model_table glmmTMB branch returns clean IRR values for main effects", {
   skip_if_not_installed("glmmTMB")
 
   mods <- setup_models()
   model <- mods$nb
 
-  tab <- bbmake_anova_table(model)
+  tab <- bbmake_model_table(model)
 
   # Main effects should have sensible IRR values (not NA)
   main_effects <- c("Sex", "Diet", "Stim")

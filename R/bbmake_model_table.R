@@ -2,14 +2,14 @@
 #'
 #' Creates an ANOVA-style table for lm, lmer/lmerModLmerTest, or glmmTMB models.
 #' For Gaussian models it returns the classic F-test table + partial omega-squared.
-#' For glmmTMB (e.g. negative binomial) it returns Wald χ² tests + Incidence Rate Ratios (IRRs).
+#' For glmmTMB (e.g. negative binomial) it returns Wald-z tests + Incidence Rate Ratios (IRRs).
 #'
 #' @param model A fitted model — `lm()`, `lmer()`/`lmerMod*`, or `glmmTMB`
 #' @param type Type of sums of squares ("III" is default and recommended)
 #'
 #' @return A tibble with the ANOVA-style results (and IRRs for glmmTMB)
 #' @export
-bbmake_anova_table <- function(model, type = "III") {
+bbmake_model_table <- function(model, type = "III") {
 
   # ------------------------------------------------------------------
   # Helper: Clean glmmTMB coefficient names
@@ -89,36 +89,21 @@ bbmake_anova_table <- function(model, type = "III") {
     # ==================================================================
   } else if (inherits(model, "glmmTMB")) {
 
-    aov_tab <- car::Anova(model, type = type, test.statistic = "Chisq") |>
-      as.data.frame() |>
-      tibble::rownames_to_column("Effect") |>
+    tab <- model |>
+      parameters::model_parameters(exponentiate = TRUE) |>
+      dplyr::as_tibble() |>
       dplyr::rename(
-        NumDF = Df,
-        `Chisq value` = Chisq,
-        `Pr(>Chisq)` = `Pr(>Chisq)`
+        Effect = Parameter,
+        IRR = Coefficient,
+        `Pr(>z)` = p
       ) |>
+      tidyr::drop_na(z)  |>
+      dplyr::filter(Effect != "(Intercept)") |>
       dplyr::mutate(
-        `Chisq value` = round(`Chisq value`, 2),
-        `Pr(>Chisq)` = format.pval(`Pr(>Chisq)`, digits = 3, eps = 0.001)
+        `% Change` = (IRR - 1) * 100,
+        Effect = clean_term_names(Effect)
       ) |>
-      dplyr::select(Effect, NumDF, `Chisq value`, `Pr(>Chisq)`)
-
-    irr_tab <- parameters::model_parameters(
-      model,
-      exponentiate = TRUE,
-      component = "conditional"
-    ) |>
-      as.data.frame() |>
-      dplyr::filter(!grepl("^(sd_|zi_)", Parameter)) |>
-      dplyr::rename(Effect = Parameter) |>
-      dplyr::mutate(
-        Effect = clean_term_names(Effect),
-        IRR = round(Coefficient, 2),
-        `IRR 95% CI` = sprintf("[%.2f, %.2f]", CI_low, CI_high)
-      ) |>
-      dplyr::select(Effect, IRR, `IRR 95% CI`)
-
-    tab <- dplyr::left_join(aov_tab, irr_tab, by = "Effect")
+      dplyr::select(Effect, z, IRR, CI_low, CI_high, `% Change`, `Pr(>z)`)
 
   } else {
     stop("Model class not supported. Only lm, lmer*, and glmmTMB are handled.")

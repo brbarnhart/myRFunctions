@@ -2,36 +2,30 @@
 % Please edit documentation in R/bbmake_pairwise_plot.R
 \name{bbmake_pairwise_plot}
 \alias{bbmake_pairwise_plot}
-\title{Create pairwise comparison table with Cohen's d and CIs}
+\title{Create pairwise comparison plot (now handles both Gaussian and GLMM)}
 \usage{
 bbmake_pairwise_plot(
   emm,
   pw_table,
   formula,
-  group1,
-  group2,
   aesthetic = aes(x = xvar, y = yvar),
   y.adjust = 0
 )
 }
 \arguments{
-\item{emm}{An emmGrid object (output from emmeans())}
+\item{emm}{emmGrid object from emmeans}
 
-\item{pw_table}{A table_df object (output from bbmake_pairwise_table())}
+\item{pw_table}{Output from bbmake_pairwise_table()}
 
-\item{formula}{Formula object used to create emm}
+\item{formula}{Formula passed to emmip()}
 
-\item{group1}{"String" First group for significance markers for pairwise comparisons}
+\item{aesthetic}{Default aes(x = xvar, y = yvar)}
 
-\item{group2}{"String" Second group for significance markers for pairwise comparisons}
-
-\item{aesthetic}{Aesthetic used for the plot. Default = aes(x = xvar, y = yvar)}
-
-\item{y.adjust}{Float or list of floats representing the y adjustment for each significance marker}
+\item{y.adjust}{Vertical nudge for significance stars}
 }
 \value{
-A ggplot2 plot object
+ggplot2 object
 }
 \description{
-Create pairwise comparison table with Cohen's d and CIs
+Automatically shows the correct effect-size annotation in the top-right corner.
 }

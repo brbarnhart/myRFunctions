@@ -2,19 +2,18 @@
 % Please edit documentation in R/bbmake_pairwise_table.R
 \name{bbmake_pairwise_table}
 \alias{bbmake_pairwise_table}
-\title{Create pairwise comparison table with Cohen's d and CIs}
+\title{Create pairwise comparison table (preserves by= grouping + always cleans rowid)}
 \usage{
-bbmake_pairwise_table(pw)
+bbmake_pairwise_table(pw, model = NULL)
 }
 \arguments{
-\item{pw}{An emmGrid object (output from pairs() from emmeans)}
+\item{pw}{An \code{emmGrid} object (output from \code{pairs(emm)})}
+
+\item{model}{Original fitted model (optional)}
 }
 \value{
-A data.frame object
+A tibble with grouping columns first, then contrast + effect sizes
 }
 \description{
-Create pairwise comparison table with Cohen's d and CIs
-}
-\examples{
-pw_table <- bbmake_pairwise_table(pw)
+Create pairwise comparison table (preserves by= grouping + always cleans rowid)
 }
