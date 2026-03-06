@@ -44,8 +44,6 @@ bbmake_pairwise_plot <- function(
   pw_contrasts <- pw_table |>
     as.data.frame() |>
     mutate(
-      group1    = str_trim(str_split_i(contrast, " - ", 1)),
-      group2    = str_trim(str_split_i(contrast, " - ", 2)),
       p.signif  = case_when(
         p.value < 0.001 ~ "***",
         p.value < 0.01  ~ "**",
@@ -55,6 +53,20 @@ bbmake_pairwise_plot <- function(
       ),
       y.position = max(emm_df$upper, na.rm = TRUE) + y.adjust
     )
+
+  if (attr(pw_table, "estName") == "estimate") {
+    pw_contrasts <- pw_contrasts |>
+      mutate(
+        group1    = str_trim(str_split_i(contrast, " - ", 1)),
+        group2    = str_trim(str_split_i(contrast, " - ", 2))
+      )
+  } else if (attr(pw_table, "estName") == "ratio") {
+    pw_contrasts <- pw_contrasts |>
+      mutate(
+        group1    = str_trim(str_split_i(contrast, " / ", 1)),
+        group2    = str_trim(str_split_i(contrast, " / ", 2))
+      )
+  }
 
   plot_data <- emmip(emm, formula, CIs = TRUE, plotit = FALSE)
 
