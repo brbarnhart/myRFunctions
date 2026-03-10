@@ -105,18 +105,21 @@ bbmake_pairwise_plot <- function(
 
   # Dynamic top-right annotation (only first contrast's value is shown – cleanest look)
   if ("Cohen's d" %in% colnames(pw_table)) {
-    annot <- sprintf("Cohen's d = %.2f", abs(pw_table$`Cohen's d`[1]))
+    pw_table <- pw_table |> mutate (
+      effect_annotation = sprintf("Cohen's d = %.2f", abs(`Cohen's d`))
+    )
   } else if ("IRR" %in% colnames(pw_table)) {
-    annot <- sprintf("IRR = %.2f",
-                     pw_table$`IRR`[1])
+    pw_table <- pw_table |> mutate (
+      effect_annotation = sprintf("IRR = %.2f", IRR)
+    )
   } else if ("Odds Ratio" %in% colnames(pw_table)) {
-    annot <- sprintf("Odds Ratio = %.2f\n%s",
-                     pw_table$`Odds Ratio`[1],
-                     pw_table$`OR 95% CI`[1])
-  } else if ("Estimate" %in% colnames(pw_table) || "Mean Difference" %in% colnames(pw_table)) {
-    annot <- sprintf("Difference = %.2f", pw_table[[which(colnames(pw_table) %in% c("Estimate", "Mean Difference"))[1]]][1])
+    pw_table <- pw_table |> mutate (
+      effect_annotation = sprintf("Odds Ratio = %.2f", `Odds Ratio`)
+    )
   } else {
-    annot <- ""
+    pw_table <- pw_table |> mutate (
+      effect_annotation = ""
+    )
   }
 
   ggplot(plot_data, aesthetic) +
