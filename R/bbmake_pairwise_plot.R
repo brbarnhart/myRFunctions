@@ -5,6 +5,7 @@
 #' @param emm emmGrid object from emmeans
 #' @param pw_table Output from bbmake_pairwise_table()
 #' @param formula Formula passed to emmip()
+#' @param grouping_variables Character vector. Default = character(0) (No grouping)
 #' @param aesthetic Default aes(x = xvar, y = yvar)
 #' @param y.adjust Vertical nudge for significance stars
 #'
@@ -14,6 +15,7 @@ bbmake_pairwise_plot <- function(
     emm,
     pw_table,
     formula,
+    grouping_variables = NULL,
     aesthetic = aes(x = xvar, y = yvar),
     y.adjust = 0
 ) {
@@ -43,6 +45,7 @@ bbmake_pairwise_plot <- function(
   # Significance markers (works for any number of contrasts)
   pw_contrasts <- pw_table |>
     as.data.frame() |>
+    group_by(all_of(grouping_variables)) |>
     mutate(
       p.signif  = case_when(
         p.value < 0.001 ~ "***",
@@ -52,7 +55,8 @@ bbmake_pairwise_plot <- function(
         TRUE            ~ "ns"
       ),
       y.position = max(emm_df$upper, na.rm = TRUE) + y.adjust
-    )
+    ) |>
+    ungroup()
 
   if (attr(pw_table, "estName") == "estimate") {
     pw_contrasts <- pw_contrasts |>
@@ -73,10 +77,9 @@ bbmake_pairwise_plot <- function(
   # Dynamic top-right annotation (only first contrast's value is shown – cleanest look)
   if ("Cohen's d" %in% colnames(pw_table)) {
     annot <- sprintf("Cohen's d = %.2f", abs(pw_table$`Cohen's d`[1]))
-  } else if ("Rate Ratio" %in% colnames(pw_table)) {
-    annot <- sprintf("Rate Ratio = %.2f\n%s",
-                     pw_table$`Rate Ratio`[1],
-                     pw_table$`RR 95% CI`[1])
+  } else if ("IRR" %in% colnames(pw_table)) {
+    annot <- sprintf("IRR = %.2f",
+                     pw_table$`IRR`[1])
   } else if ("Odds Ratio" %in% colnames(pw_table)) {
     annot <- sprintf("Odds Ratio = %.2f\n%s",
                      pw_table$`Odds Ratio`[1],
