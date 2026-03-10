@@ -5,7 +5,7 @@
 #' @param emm emmGrid object from emmeans
 #' @param pw_table Output from bbmake_pairwise_table()
 #' @param formula Formula passed to emmip()
-#' @param grouping_variables Character vector. Default = character(0) (No grouping)
+#' @param grouping_vars variables to group by for significance markers
 #' @param aesthetic Default aes(x = xvar, y = yvar)
 #' @param y.adjust Vertical nudge for significance stars
 #'
@@ -15,7 +15,7 @@ bbmake_pairwise_plot <- function(
     emm,
     pw_table,
     formula,
-    grouping_variables = NULL,
+    grouping_vars = NULL,
     aesthetic = aes(x = xvar, y = yvar),
     y.adjust = 0
 ) {
@@ -35,17 +35,32 @@ bbmake_pairwise_plot <- function(
   lower_col <- ifelse("lower.CL" %in% names(emm_df), "lower.CL", "asymp.LCL")
   upper_col <- ifelse("upper.CL" %in% names(emm_df), "upper.CL", "asymp.UCL")
 
-  emm_df <- emm_df |>
+  emm_df <- as.data.frame(emm) |>
     rename(
       emmean = all_of(mean_col),
       lower  = all_of(lower_col),
       upper  = all_of(upper_col)
     )
 
+  if (is.null(grouping_vars) || length(grouping_vars) == 0) {
+    # No grouping → single global max
+    emm_df <- emm_df |>
+      mutate(
+        y.position = max(upper, na.rm = TRUE),
+        y.position = y.position + y.adjust
+      )
+  } else {
+    emm_df <- emm_df |>
+      group_by(across(all_of(grouping_vars))) |>
+      mutate(
+        y.position = max(upper, na.rm = TRUE),
+        y.position = y.position + y.adjust) |>
+      ungroup()
+  }
+
   # Significance markers (works for any number of contrasts)
   pw_contrasts <- pw_table |>
     as.data.frame() |>
-    group_by(all_of(grouping_variables)) |>
     mutate(
       p.signif  = case_when(
         p.value < 0.001 ~ "***",
@@ -53,10 +68,8 @@ bbmake_pairwise_plot <- function(
         p.value < 0.05  ~ "*",
         p.value < 0.1   ~ ".",
         TRUE            ~ "ns"
-      ),
-      y.position = max(emm_df$upper, na.rm = TRUE) + y.adjust
-    ) |>
-    ungroup()
+      )
+    )
 
   if (attr(pw_table, "estName") == "estimate") {
     pw_contrasts <- pw_contrasts |>
@@ -69,6 +82,22 @@ bbmake_pairwise_plot <- function(
       mutate(
         group1    = str_trim(str_split_i(contrast, " / ", 1)),
         group2    = str_trim(str_split_i(contrast, " / ", 2))
+      )
+  }
+
+  if (!is.null(grouping_vars) && length(grouping_vars) > 0) {
+    y_pos_lookup <- emm_df |>
+      select(all_of(grouping_vars), y.position) |>
+      distinct()
+
+    pw_contrasts <- pw_contrasts |>
+      left_join(y_pos_lookup, by = grouping_vars)
+  } else {
+    # No grouping → just one value
+    pw_contrasts <- pw_contrasts |>
+      mutate(
+        y.position = max(emm_df$upper, na.rm = TRUE),
+        y.position = y.position + y.adjust
       )
   }
 
@@ -96,11 +125,13 @@ bbmake_pairwise_plot <- function(
     geom_point(size = 4.5) +
     geom_errorbar(aes(ymin = LCL, ymax = UCL), width = 0.25) +
     theme_get() +
-    annotate("text",
-             x = Inf, y = Inf,
-             label = annot,
-             hjust = 1.05, vjust = 2.2,
-             size = 4.2, lineheight = 0.9) +
+    geom_text(
+      data = pw_table,
+      aes(label = effect_annotation),
+      x = Inf, y = Inf,
+      hjust = 1.05, vjust = 2.2,
+      size = 4.2, inherit.aes = FALSE
+    ) +
     stat_pvalue_manual(
       data = pw_contrasts,
       label = "p.signif",

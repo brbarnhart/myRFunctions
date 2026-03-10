@@ -87,8 +87,6 @@ test_that("bbmake_pairwise_plot returns a ggplot object", {
       emm      = emm,
       pw_table = pw_table,
       formula  = ~ Stim | Group,
-      # group1   = "Med",
-      # group2   = "High",
       y.adjust = 5
     )
   )
@@ -110,10 +108,7 @@ test_that("bbmake_pairwise_plot handles multiple contrasts", {
       emm      = emm,
       pw_table = pw_table_multi,
       formula  = ~ Stim | Group,
-      # group1   = c("Low", "Med"),
-      # group2   = c("Med", "High"),
       y.adjust = c(2, 5)  # test vector input
-                          # (note: your current code uses only first value)
     )
   )
 })
