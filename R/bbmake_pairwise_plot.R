@@ -8,6 +8,8 @@
 #' @param grouping_vars variables to group by for significance markers
 #' @param aesthetic Default aes(x = xvar, y = yvar)
 #' @param y.adjust Vertical nudge for significance stars
+#' @param hjust Effect size horizontal adjustment
+#' @param vjust Effect size vertical adjustment
 #'
 #' @return ggplot2 object
 #' @export
@@ -17,7 +19,9 @@ bbmake_pairwise_plot <- function(
     formula,
     grouping_vars = NULL,
     aesthetic = aes(x = xvar, y = yvar),
-    y.adjust = 0
+    y.adjust = 0,
+    hjust = 1.05,
+    vjust = 2.2
 ) {
 
   emm_df <- as.data.frame(emm)
@@ -132,7 +136,7 @@ bbmake_pairwise_plot <- function(
       data = pw_table,
       aes(label = effect_annotation),
       x = Inf, y = Inf,
-      hjust = 1.05, vjust = 2.2,
+      hjust = hjust, vjust = vjust,
       size = 4.2, inherit.aes = FALSE
     ) +
     stat_pvalue_manual(
