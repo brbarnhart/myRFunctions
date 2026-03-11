@@ -7,9 +7,10 @@
 #' @param formula Formula passed to emmip()
 #' @param grouping_vars variables to group by for significance markers
 #' @param aesthetic Default aes(x = xvar, y = yvar)
-#' @param y.adjust Vertical nudge for significance stars
-#' @param hjust Effect size horizontal adjustment
-#' @param vjust Effect size vertical adjustment
+#' @param y.adjust Vertical nudge for significance stars. (Default = 0)
+#' @param hjust Effect size horizontal adjustment. (Default = 1.05)
+#' @param vjust Effect size vertical adjustment. (Default = 2.2)
+#' @param point_size Size of points on plot. (Default = 4.5)
 #'
 #' @return ggplot2 object
 #' @export
@@ -21,7 +22,8 @@ bbmake_pairwise_plot <- function(
     aesthetic = aes(x = xvar, y = yvar),
     y.adjust = 0,
     hjust = 1.05,
-    vjust = 2.2
+    vjust = 2.2,
+    point_size = 4.5
 ) {
 
   emm_df <- as.data.frame(emm)
@@ -56,10 +58,9 @@ bbmake_pairwise_plot <- function(
   } else {
     emm_df <- emm_df |>
       group_by(across(all_of(grouping_vars))) |>
-      mutate(
-        y.position = max(upper, na.rm = TRUE),
-        y.position = y.position + y.adjust) |>
-      ungroup()
+      mutate(y.position = max(upper, na.rm = TRUE)) |>
+      ungroup() |>
+      mutate(y.position = y.position + y.adjust)
   }
 
   # Significance markers (works for any number of contrasts)
@@ -129,7 +130,7 @@ bbmake_pairwise_plot <- function(
   ggplot(plot_data, aesthetic) +
     geom_hline(yintercept = 0, linetype = "solid", color = "gray50", linewidth = 0.6) +
     geom_line(linewidth = 0.8) +
-    geom_point(size = 4.5) +
+    geom_point(size = point_size) +
     geom_errorbar(aes(ymin = LCL, ymax = UCL), width = 0.25) +
     theme_get() +
     geom_text(
