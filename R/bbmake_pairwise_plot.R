@@ -60,7 +60,9 @@ bbmake_pairwise_plot <- function(
       group_by(across(all_of(grouping_vars))) |>
       mutate(y.position = max(upper, na.rm = TRUE)) |>
       ungroup() |>
-      mutate(y.position = y.position + y.adjust)
+      group_by(y.position) |>
+      mutate(y.position = y.position + y.adjust) |>
+      ungroup()
   }
 
   # Significance markers (works for any number of contrasts)
