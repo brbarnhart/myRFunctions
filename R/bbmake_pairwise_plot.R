@@ -23,7 +23,7 @@ bbmake_pairwise_plot <- function(
     y.adjust = 0,
     hjust = 1.05,
     vjust = 2.2,
-    point_size = 4.5
+    point_size = 3.0
 ) {
 
   emm_df <- as.data.frame(emm)
