@@ -51,17 +51,11 @@ bbmake_pairwise_plot <- function(
   if (is.null(grouping_vars) || length(grouping_vars) == 0) {
     # No grouping → single global max
     emm_df <- emm_df |>
-      mutate(
-        y.position = max(upper, na.rm = TRUE),
-        y.position = y.position + y.adjust
-      )
+      mutate(y.position = max(upper, na.rm = TRUE))
   } else {
     emm_df <- emm_df |>
       group_by(across(all_of(grouping_vars))) |>
       mutate(y.position = max(upper, na.rm = TRUE)) |>
-      ungroup() |>
-      group_by(y.position) |>
-      mutate(y.position = y.position + y.adjust) |>
       ungroup()
   }
 
@@ -95,7 +89,8 @@ bbmake_pairwise_plot <- function(
   if (!is.null(grouping_vars) && length(grouping_vars) > 0) {
     y_pos_lookup <- emm_df |>
       select(all_of(grouping_vars), y.position) |>
-      distinct()
+      distinct() |>
+      mutate(y.position = y.position + y.adjust)
 
     pw_contrasts <- pw_contrasts |>
       left_join(y_pos_lookup, by = grouping_vars)
