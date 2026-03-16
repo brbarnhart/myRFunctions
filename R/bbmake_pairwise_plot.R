@@ -67,7 +67,6 @@ bbmake_pairwise_plot <- function(
         p.value < 0.001 ~ "***",
         p.value < 0.01  ~ "**",
         p.value < 0.05  ~ "*",
-        p.value < 0.1   ~ ".",
         TRUE            ~ "ns"
       )
     )

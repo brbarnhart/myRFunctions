@@ -46,7 +46,7 @@ setup_models <- function() {
   list(
     lm    = mod_lm,
     lmer  = mod_lmer,
-    nb    = mod_nb,          # ← new
+    nb    = mod_nb,
     data  = dat
   )
 }
