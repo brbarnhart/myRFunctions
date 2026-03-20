@@ -192,5 +192,4 @@ test_that("bbmake_model_table glmmTMB branch works with test type set", {
   expect_no_error({
     bbmake_model_table(model, type = "II")
   })
-
 })

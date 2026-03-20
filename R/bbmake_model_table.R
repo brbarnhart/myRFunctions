@@ -106,7 +106,7 @@ bbmake_model_table <- function(model, type = NULL) {
                             test.statistic = "Chisq")
 
       tab <- aov_tab |>
-        as_tibble() |>
+        as.data.frame() |>
         tibble::rownames_to_column("Effect") |>
         dplyr::as_tibble() |>
         dplyr::rename(
