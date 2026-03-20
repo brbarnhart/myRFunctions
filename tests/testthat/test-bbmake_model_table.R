@@ -67,14 +67,13 @@ test_that("bbmake_model_table works on lm() model and returns expected structure
   expect_true(nrow(tab) >= 1)
 
   expected_cols <- c(
-    "Effect", "NumDF", "DenDF", "F value", "Pr(>F)",
-    "Omega2 (partial)", "Omega2 (95% CI)"
+    "Effect", "F", "p",
+    "Omega2 (partial)", "CI_low", "CI_high"
   )
   expect_true(all(expected_cols %in% names(tab)))
 
   expect_true(all(is.na(tab$DenDF)))
   expect_true(is.numeric(tab$`Omega2 (partial)`))
-  expect_true(is.character(tab$`Omega2 (95% CI)`))
   expect_true(any(!is.na(tab$`Omega2 (partial)`)))
 })
 
@@ -92,8 +91,8 @@ test_that("bbmake_model_table works on lmer() model and handles DenDF correctly"
   expect_true(nrow(tab) >= 1)
 
   expected_cols <- c(
-    "Effect", "NumDF", "DenDF", "F value", "Pr(>F)",
-    "Omega2 (partial)", "Omega2 (95% CI)"
+    "Effect", "F", "p",
+    "Omega2 (partial)", "CI_low", "CI_high"
   )
   expect_true(all(expected_cols %in% names(tab)))
 

@@ -32,35 +32,27 @@ bbmake_model_table <- function(model, type = NULL) {
       aov_tab <- anova(model) |>
         as.data.frame() |>
         tibble::rownames_to_column("Effect") |>
-        dplyr::select(Effect, NumDF, DenDF, `F value`, `Pr(>F)`)
+        dplyr::rename(
+          `F` = `F value`,
+          p = `Pr(>F)`
+        ) |>
+        dplyr::select(Effect, NumDF, DenDF, `F`, p)
 
     } else {
       # lm or plain lmerMod → car::Anova (type II)
       if (is.null(type)) {type <- "II"}
       aov_tab <- suppressWarnings(
-        car::Anova(model, type = type)
+        car::Anova(model, type = type, test.statistic = "F")
       ) |>
         as.data.frame() |>
-        tibble::rownames_to_column("Effect")
-
-      if ("Df" %in% names(aov_tab)) {
-        aov_tab <- dplyr::rename(aov_tab, NumDF = Df)
-      }
-
-      # Plain lmerMod (no lmerTest) gives Chisq → treat as F-value for consistency
-      if ("Chisq" %in% names(aov_tab)) {
-        aov_tab <- dplyr::rename(aov_tab,
-                                 `F value` = Chisq,
-                                 `Pr(>F)`  = `Pr(>Chisq)`
+        tibble::rownames_to_column("Effect") |>
+        rename(
+          `F` = `F value`,
+          p = `Pr(>F)`
         )
-      }
-
-      if (!"DenDF" %in% names(aov_tab)) {
-        aov_tab$DenDF <- NA_real_
-      }
 
       aov_tab <- aov_tab |>
-        dplyr::select(Effect, NumDF, DenDF, `F value`, `Pr(>F)`)
+        dplyr::select(Effect, any_of(c("DF", "NumDF", "DenDF")), `F`, p)
     }
 
     # --------------------- Partial omega-squared ---------------------
@@ -69,19 +61,8 @@ bbmake_model_table <- function(model, type = NULL) {
       dplyr::rename(
         Effect             = Parameter,
         `Omega2 (partial)` = Omega2_partial
-      )
-
-    # Guarantee character CI column (what the tests expect)
-    if (all(c("CI_low", "CI_high") %in% names(omega))) {
-      omega <- omega |>
-        dplyr::mutate(`Omega2 (95% CI)` = sprintf("[%.2f, %.2f]", CI_low, CI_high)) |>
-        dplyr::select(Effect, `Omega2 (partial)`, `Omega2 (95% CI)`)
-    } else if ("CI" %in% names(omega)) {
-      omega <- omega |> dplyr::rename(`Omega2 (95% CI)` = CI)
-    } else {
-      omega$`Omega2 (95% CI)` <- NA_character_
-      omega <- dplyr::select(omega, Effect, `Omega2 (partial)`, `Omega2 (95% CI)`)
-    }
+      ) |>
+      select(Effect, `Omega2 (partial)`, CI_low, CI_high)
 
     tab <- dplyr::left_join(aov_tab, omega, by = "Effect")
 
