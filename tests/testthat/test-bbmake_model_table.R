@@ -124,7 +124,7 @@ test_that("bbmake_model_table does not crash on boundary/singular lmer fit", {
 
 
 # ==================================================================
-# NEW TESTS: glmmTMB / negative binomial branch
+# glmmTMB / negative binomial branch
 # ==================================================================
 
 test_that("bbmake_model_table works on glmmTMB negative binomial model", {
@@ -142,7 +142,7 @@ test_that("bbmake_model_table works on glmmTMB negative binomial model", {
 
   # GLMM-specific columns
   expected_cols <- c(
-    "Effect", "z", "IRR", "CI_low", "CI_high", "% Change", "Pr(>z)"
+    "Effect", "z", "p", "IRR", "CI_low", "CI_high"
   )
   expect_true(all(expected_cols %in% names(tab)))
 
@@ -180,4 +180,17 @@ test_that("bbmake_model_table glmmTMB branch returns clean IRR values for main e
     expect_false(is.na(row$IRR))
     expect_true(row$IRR > 0)
   }
+})
+
+
+test_that("bbmake_model_table glmmTMB branch works with test type set", {
+  skip_if_not_installed("glmmTMB")
+
+  mods <- setup_models()
+  model <- mods$nb
+
+  expect_no_error({
+    bbmake_model_table(model, type = "II")
+  })
+
 })

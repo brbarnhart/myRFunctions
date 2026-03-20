@@ -9,7 +9,7 @@
 #'
 #' @return A tibble with the ANOVA-style results (and IRRs for glmmTMB)
 #' @export
-bbmake_model_table <- function(model, type = "III") {
+bbmake_model_table <- function(model, type = NULL) {
 
   # ------------------------------------------------------------------
   # Helper: Clean glmmTMB coefficient names
@@ -35,7 +35,8 @@ bbmake_model_table <- function(model, type = "III") {
         dplyr::select(Effect, NumDF, DenDF, `F value`, `Pr(>F)`)
 
     } else {
-      # lm or plain lmerMod → car::Anova (type III)
+      # lm or plain lmerMod → car::Anova (type II)
+      if (is.null(type)) {type <- "II"}
       aov_tab <- suppressWarnings(
         car::Anova(model, type = type)
       ) |>
@@ -85,25 +86,71 @@ bbmake_model_table <- function(model, type = "III") {
     tab <- dplyr::left_join(aov_tab, omega, by = "Effect")
 
     # ==================================================================
-    # glmmTMB models (unchanged – already passing)
+    # glmmTMB models
     # ==================================================================
   } else if (inherits(model, "glmmTMB")) {
 
-    tab <- model |>
-      parameters::model_parameters(exponentiate = TRUE) |>
-      dplyr::as_tibble() |>
-      dplyr::rename(
-        Effect = Parameter,
-        IRR = Coefficient,
-        `Pr(>z)` = p
-      ) |>
-      tidyr::drop_na(z)  |>
-      dplyr::filter(Effect != "(Intercept)") |>
-      dplyr::mutate(
-        `% Change` = (IRR - 1) * 100,
-        Effect = clean_term_names(Effect)
-      ) |>
-      dplyr::select(Effect, z, IRR, CI_low, CI_high, `% Change`, `Pr(>z)`)
+    if (!is.null(type)) {
+
+      # ── Term-wise Wald χ² table (ANOVA-style) ────────────────────────────────
+
+      # Make sure car is available
+      if (!requireNamespace("car", quietly = TRUE)) {
+        stop("Package 'car' is required for glmm_anova_type. Please install it.")
+      }
+
+      # Run Anova – type can be "II", "III", 2 or 3 (car accepts both)
+      aov_tab <- car::Anova(model,
+                            type      = type,
+                            component = "cond",          # main (mean) model
+                            test.statistic = "Chisq")
+
+      tab <- aov_tab |>
+        as_tibble() |>
+        tibble::rownames_to_column("Effect") |>
+        dplyr::as_tibble() |>
+        dplyr::rename(
+          Df       = Df,
+          `Wald χ²` = Chisq,
+          `p`      = `Pr(>Chisq)`
+        ) |>
+        dplyr::mutate(Effect = clean_term_names(Effect)) |>
+        dplyr::select(Effect, Df, `Wald χ²`, p)
+
+      # Add on IRR information for a pseudo effect size
+      IRR_tab <- parameters::model_parameters(model, exponentiate = TRUE) |>
+        dplyr::as_tibble() |>
+        dplyr::rename(
+          Effect     = Parameter,
+          IRR        = Coefficient
+        ) |>
+        tidyr::drop_na(z) |>
+        dplyr::filter(Effect != "(Intercept)") |>
+        dplyr::mutate(Effect = clean_term_names(Effect)) |>
+        dplyr::select(Effect, IRR, CI_low, CI_high)
+
+      tab <- left_join(tab, IRR_tab, by = "Effect")
+
+      # Optional: add note about test type
+      attr(tab, "note") <- sprintf("Type %s Wald χ² tests (conditional component)",
+                                   if (is.numeric(type)) type else toupper(type))
+
+    } else {
+
+      # ── Original per-coefficient style with IRRs (default) ────────────────────
+
+      tab <- parameters::model_parameters(model, exponentiate = TRUE) |>
+        dplyr::as_tibble() |>
+        dplyr::rename(
+          Effect     = Parameter,
+          IRR        = Coefficient
+        ) |>
+        tidyr::drop_na(z) |>
+        dplyr::filter(Effect != "(Intercept)") |>
+        dplyr::mutate(Effect = clean_term_names(Effect)) |>
+        dplyr::select(Effect, z, p, IRR, CI_low, CI_high)
+
+    }
 
   } else {
     stop("Model class not supported. Only lm, lmer*, and glmmTMB are handled.")
