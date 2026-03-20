@@ -36,7 +36,8 @@ bbmake_model_table <- function(model, type = NULL) {
           `F` = `F value`,
           p = `Pr(>F)`
         ) |>
-        dplyr::select(Effect, NumDF, DenDF, `F`, p)
+        dplyr::select(Effect, NumDF, DenDF, `F`, p) |>
+        dplyr:: filter(!Effect %in% c("(Intercept)", "Residuals"))
 
     } else {
       # lm or plain lmerMod → car::Anova (type II)
@@ -52,7 +53,8 @@ bbmake_model_table <- function(model, type = NULL) {
         )
 
       aov_tab <- aov_tab |>
-        dplyr::select(Effect, any_of(c("DF", "NumDF", "DenDF")), `F`, p)
+        dplyr::select(Effect, any_of(c("DF", "NumDF", "DenDF")), `F`, p) |>
+        dplyr:: filter(!Effect %in% c("(Intercept)", "Residuals"))
     }
 
     # --------------------- Partial omega-squared ---------------------
