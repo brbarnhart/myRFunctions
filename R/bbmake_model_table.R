@@ -100,20 +100,6 @@ bbmake_model_table <- function(model, type = NULL) {
         dplyr::mutate(Effect = clean_term_names(Effect)) |>
         dplyr::select(Effect, Df, `Wald χ²`, p)
 
-      # Add on IRR information for a pseudo effect size
-      IRR_tab <- parameters::model_parameters(model, exponentiate = TRUE) |>
-        dplyr::as_tibble() |>
-        dplyr::rename(
-          Effect     = Parameter,
-          IRR        = Coefficient
-        ) |>
-        tidyr::drop_na(z) |>
-        dplyr::filter(Effect != "(Intercept)") |>
-        dplyr::mutate(Effect = clean_term_names(Effect)) |>
-        dplyr::select(Effect, IRR, CI_low, CI_high)
-
-      tab <- left_join(tab, IRR_tab, by = "Effect")
-
       # Optional: add note about test type
       attr(tab, "note") <- sprintf("Type %s Wald χ² tests (conditional component)",
                                    if (is.numeric(type)) type else toupper(type))
