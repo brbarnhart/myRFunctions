@@ -37,8 +37,9 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
         upper.CL   = .data[[ucl_col]],
         `% Change` = 100 * (ratio - 1)
       ) |>
-      select(any_of(by_vars), contrast, IRR, lower.CL, upper.CL,
-             `% Change`, SE, any_of(c("z.ratio", "t.ratio")), p.value)
+      select(any_of(by_vars), contrast,
+             any_of(c("z.ratio", "t.ratio")), p.value,
+             IRR, lower.CL, upper.CL)
 
   } else if (has_odds) {
     pw_table <- pw_summary |>
@@ -47,15 +48,16 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
         lower.CL   = .data[[lcl_col]],
         upper.CL   = .data[[ucl_col]]
       ) |>
-      select(any_of(by_vars), contrast, `Odds Ratio`, lower.CL, upper.CL,
-             SE, any_of(c("z.ratio", "t.ratio")), p.value)
+      select(any_of(by_vars), contrast,
+             any_of(c("z.ratio", "t.ratio")), p.value,
+             `Odds Ratio`, lower.CL, upper.CL)
 
   } else {
     # ==================== GAUSSIAN / LINK-SCALE MODELS ====================
     pw_table <- pw_summary |>
       select(any_of(by_vars), everything()) |>
       rename(`Mean Difference` = estimate) |>
-      select(any_of(by_vars), contrast, `Mean Difference`, SE, any_of("df"),
+      select(any_of(by_vars), contrast, any_of("df"), `Mean Difference`, SE,
              any_of(c("t.ratio", "z.ratio")), p.value) |>
       rowid_to_column("rowid")
 

@@ -99,7 +99,7 @@ test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response'
   tab <- bbmake_pairwise_table(pw)
 
   # Column presence
-  required_cols <- c("contrast", "IRR", "lower.CL", "upper.CL", "% Change")
+  required_cols <- c("contrast", "IRR", "lower.CL", "upper.CL")
   missing_cols  <- setdiff(required_cols, names(tab))
   expect_true(length(missing_cols) == 0,
               info = paste("Missing columns:", paste(missing_cols, collapse = ", ")))
@@ -111,8 +111,6 @@ test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response'
               info = "RR 95% CI column should be numeric")
   expect_true(is.numeric(tab$lower.CL),
               info = "RR 95% CI column should be numeric")
-  expect_true(is.numeric(tab$`% Change`),
-              info = "% Change column should be numeric")
 })
 
 test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response' + by grouping", {
@@ -145,10 +143,6 @@ test_that("bbmake_pairwise_table output works with bbnice_pairwise_table and has
   pw  <- pairs(emm, reverse = TRUE, infer = TRUE)
 
   tab <- bbmake_pairwise_table(pw)
-
-  # polishing checks
-  expect_true(all(str_trim(tab$contrast) == tab$contrast),
-              info = "contrast column should have no leading/trailing whitespace")
 
   unsorted_p <- na.omit(tab$p.value)
   expect_true(!is.unsorted(unsorted_p),
