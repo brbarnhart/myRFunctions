@@ -77,7 +77,7 @@ bbmake_pairwise_plot <- function(
         group1    = str_trim(str_split_i(contrast, " - ", 1)),
         group2    = str_trim(str_split_i(contrast, " - ", 2))
       )
-  } else if (attr(pw_table, "estName") == "ratio") {
+  } else if (attr(pw_table, "estName") |> stringr::str_detect("ratio")) {
     pw_contrasts <- pw_contrasts |>
       mutate(
         group1    = str_trim(str_split_i(contrast, " / ", 1)),
