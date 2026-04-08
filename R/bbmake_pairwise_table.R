@@ -57,8 +57,13 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
     pw_table <- pw_summary |>
       select(any_of(by_vars), everything()) |>
       rename(`Mean Difference` = estimate) |>
-      select(any_of(by_vars), contrast, any_of("df"), `Mean Difference`, SE,
-             any_of(c("t.ratio", "z.ratio")), p.value) |>
+      select(
+        any_of(by_vars),
+        contrast,
+        any_of(c("t.ratio", "z.ratio")),
+        any_of("df"),
+        p.value
+      ) |>
       rowid_to_column("rowid")
 
     # Cohen's d (only for true Gaussian models)
@@ -73,9 +78,9 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
           summary(infer = TRUE) |>
           as_tibble() |>
           rowid_to_column("rowid") |>
-          rename(`Cohen's d` = effect.size) |>
-          mutate(`d 95% CI` = sprintf("[%.2f, %.2f]", lower.CL, upper.CL)) |>
-          select(rowid, `Cohen's d`, `d 95% CI`)
+          rename(`d` = effect.size) |>
+          # mutate(`d 95% CI` = sprintf("[%.2f, %.2f]", lower.CL, upper.CL)) |>
+          select(rowid, d, lower.CL, upper.CL)
       }, error = function(e) {
         warning("Cohen's d could not be calculated: ", e$message, call. = FALSE)
         NULL

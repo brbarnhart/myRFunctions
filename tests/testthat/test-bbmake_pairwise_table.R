@@ -61,16 +61,10 @@ test_that("bbmake_pairwise_table works on Gaussian (lmer) model - Mean Differenc
   tab <- bbmake_pairwise_table(pw, model = mods$lmer)
 
   # Column presence
-  required_cols <- c("contrast", "Mean Difference", "SE", "Cohen's d", "d 95% CI")
+  required_cols <- c("contrast", "d", "lower.CL", "upper.CL")
   missing_cols  <- setdiff(required_cols, names(tab))
   expect_true(length(missing_cols) == 0,
               info = paste("Missing columns:", paste(missing_cols, collapse = ", ")))
-
-  # Type checks with helpful messages
-  expect_true(is.numeric(tab$`Mean Difference`),
-              info = "Mean Difference column should be numeric")
-  expect_true(is.character(tab$`d 95% CI`),
-              info = "d 95% CI column should be character strings")
 
   # CI string format
   bad_ci <- tab$`d 95% CI`[!grepl("^\\[", tab$`d 95% CI`)]
