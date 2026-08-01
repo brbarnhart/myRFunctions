@@ -2,30 +2,106 @@
 % Please edit documentation in R/bbmake_pairwise_plot.R
 \name{bbmake_pairwise_plot}
 \alias{bbmake_pairwise_plot}
-\title{Create pairwise comparison plot (now handles both Gaussian and GLMM)}
+\title{Create a pairwise comparison plot from emmeans}
 \usage{
 bbmake_pairwise_plot(
   emm,
-  pw_table,
-  formula,
-  aesthetic = aes(x = xvar, y = yvar),
-  y.adjust = 0
+  x = NULL,
+  facets = NULL,
+  pw = NULL,
+  pw_table = NULL,
+  model = NULL,
+  connect = FALSE,
+  hide.ns = FALSE,
+  y.adjust = 0,
+  step = 0.08,
+  annotate_effect = TRUE,
+  hjust = 1.05,
+  vjust = 2.2,
+  point_size = 0.9,
+  linewidth = 0.9,
+  show_zero_line = TRUE,
+  color = "black",
+  ...
 )
 }
 \arguments{
-\item{emm}{emmGrid object from emmeans}
+\item{emm}{An \code{emmGrid} from \code{\link[emmeans:emmeans]{emmeans::emmeans()}}.}
 
-\item{pw_table}{Output from bbmake_pairwise_table()}
+\item{x}{Bare name or string of the x-axis factor. Default: the sole
+primary variable on \code{emm} (error if ambiguous).}
 
-\item{formula}{Formula passed to emmip()}
+\item{facets}{A facet formula (e.g. \code{Diet ~ Sex} or \code{~ Group}), or \code{NULL}
+to auto-facet by by-variables (\code{facet_wrap} for one by-var, \code{facet_grid}
+for two, \code{facet_wrap} with multiple vars otherwise). Set to \code{FALSE} to
+suppress faceting.}
 
-\item{aesthetic}{Default aes(x = xvar, y = yvar)}
+\item{pw}{Optional result of \code{pairs(emm)}. Computed automatically when
+both \code{pw} and \code{pw_table} are \code{NULL}.}
 
-\item{y.adjust}{Vertical nudge for significance stars}
+\item{pw_table}{Optional output of \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}}. Built from
+\code{pw} when omitted.}
+
+\item{model}{Optional fitted model forwarded for effect-size calculation.}
+
+\item{connect}{If \code{TRUE}, draw lines connecting points within each panel
+along \code{x} (grouped by by-variables).}
+
+\item{hide.ns}{Passed to \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
+
+\item{y.adjust}{Vertical nudge for significance brackets.}
+
+\item{step}{Stacking step for multiple brackets within a panel (fraction
+of y-range). See \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
+
+\item{annotate_effect}{If \code{TRUE}, draw one effect-size label per panel
+(first contrast in that panel).}
+
+\item{hjust, vjust}{Position adjustments for the effect-size annotation
+(placed at \code{x = Inf}, \code{y = Inf}).}
+
+\item{point_size}{Size passed to \code{\link[ggplot2:geom_linerange]{ggplot2::geom_pointrange()}} (\code{size}).}
+
+\item{linewidth}{Line width for pointrange (and connecting lines).}
+
+\item{show_zero_line}{If \code{TRUE}, draw a horizontal line at y = 0.}
+
+\item{color}{Color for points / lines / error bars.}
+
+\item{...}{Additional arguments reserved for future use (currently unused).}
 }
 \value{
-ggplot2 object
+A ggplot object. Add labels/themes with \code{+} as usual.
 }
 \description{
-Automatically shows the correct effect-size annotation in the top-right corner.
+High-level convenience wrapper around \code{\link[=bb_emm_df]{bb_emm_df()}} and
+\code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}. Builds a ggplot with point-ranges, optional
+connecting lines, faceting by by-variables, significance brackets, and
+a single effect-size annotation per panel.
+}
+\details{
+For custom layouts, call the helpers yourself and layer geoms manually.
+}
+\examples{
+\dontrun{
+emm <- emmeans(mod, ~ Stim | Diet * Sex, type = "response")
+
+bbmake_pairwise_plot(emm) +
+  labs(x = "Stimulation", y = "Breakpoint (active pokes)")
+
+# Custom pairs
+bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
+
+# Deeper control with helpers
+df  <- bb_emm_df(emm)
+sig <- bb_pairwise_labels(pairs(emm), emm = emm)
+ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
+  geom_pointrange() +
+  facet_grid(Diet ~ Sex) +
+  ggpubr::stat_pvalue_manual(
+    sig, label = "p.signif",
+    xmin = "group1", xmax = "group2",
+    y.position = "y.position"
+  )
+}
 }

@@ -4,7 +4,7 @@
 \alias{bbmake_model_table}
 \title{Unified ANOVA-style table}
 \usage{
-bbmake_model_table(model, type = "III")
+bbmake_model_table(model, type = NULL)
 }
 \arguments{
 \item{model}{A fitted model — \code{lm()}, \code{lmer()}/\verb{lmerMod*}, or \code{glmmTMB}}

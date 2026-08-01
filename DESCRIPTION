@@ -12,5 +12,16 @@ RoxygenNote: 7.3.3
 Imports: 
     dplyr,
     effectsize,
+    emmeans,
+    ggplot2,
+    ggpubr,
     lmerTest,
-    rempsyc
+    rempsyc,
+    rlang,
+    stringr,
+    tibble
+Suggests: 
+    glmmTMB,
+    lme4,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

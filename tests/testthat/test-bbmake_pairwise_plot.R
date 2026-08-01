@@ -3,20 +3,17 @@
 library(testthat)
 library(emmeans)
 library(lme4)
-library(lmerTest)     # for anova() with p-values
-library(tidyverse)
-library(ggpubr)       # for stat_pvalue_manual
+library(lmerTest)
+library(dplyr)
+library(tibble)
+library(ggplot2)
 
-# We'll assume the function is already available in the environment
-# (e.g. loaded via devtools::load_all() or source())
-
-setup_data <- function() {
-  # ── Minimal reproducible dataset ───────────────────────────────────────
+setup_plot_data <- function() {
   set.seed(42)
   dat <- expand.grid(
-    subj   = factor(1:12),
-    Stim   = factor(c("Low", "Med", "High")),
-    Group  = factor(c("Control", "Treatment"))
+    subj  = factor(1:12),
+    Stim  = factor(c("Low", "Med", "High"), levels = c("Low", "Med", "High")),
+    Group = factor(c("Control", "Treatment"))
   ) |>
     as_tibble() |>
     mutate(
@@ -28,87 +25,114 @@ setup_data <- function() {
         rnorm(n(), sd = 2.5)
     )
 
-  mod <- lmer(y ~ Stim * Group + (1 | subj), data = dat)
+  mod <- suppressWarnings(lmer(y ~ Stim * Group + (1 | subj), data = dat))
   emm <- emmeans(mod, ~ Stim | Group)
   pw  <- pairs(emm, adjust = "tukey")
-
-  pw_table <- summary(pw) |>
-    as_tibble() |>
-    select(contrast, estimate, SE, df, t.ratio, p.value) |>
-    mutate(
-      `Cohen's d`    = abs(estimate / SE) * 0.8,
-      lower.CL       = NA_real_,
-      upper.CL       = NA_real_
-    )
-
-  list(emm = emm, pw_table = pw_table)
+  list(mod = mod, emm = emm, pw = pw)
 }
 
+test_that("bbmake_pairwise_plot returns a ggplot with auto pairs + facets", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggplot2")
+  skip_if_not_installed("ggpubr")
 
-test_that("bbmake_pairwise_plot returns a ggplot object", {
-  dat <- setup_data()
-  emm      <- dat$emm
-  pw_table <- dat$pw_table
-
-  pw  <- pairs(emm, adjust = "tukey")
-
-  # Fake pw_table (mimics output of bbmake_pairwise_table)
-  pw_table <- summary(pw) |>
-    as_tibble() |>
-    select(contrast, estimate, SE, df, t.ratio, p.value) |>
-    mutate(
-      `Cohen's d`    = abs(estimate / SE) * 0.8,   # rough fake
-      lower.CL       = NA_real_,
-      upper.CL       = NA_real_
-    )
-
-  # ── Test basic execution ───────────────────────────────────────────────
-  p <- bbmake_pairwise_plot(
-    emm      = emm,
-    pw_table = pw_table,
-    formula  = ~ Stim | Group,
-    # group1   = "Low",
-    # group2   = "Med",
-    y.adjust = 3
-  )
+  s <- setup_plot_data()
+  p <- bbmake_pairwise_plot(s$emm, model = s$mod)
 
   expect_s3_class(p, "ggplot")
   expect_true(inherits(p, "gg"))
-  expect_true(length(p$layers) >= 4) # at least hline + line + point + errorbar
 
-  # Optional: check that key geoms are present (loose check)
-  layer_classes <- sapply(p$layers, function(l) class(l$geom)[1])
-  expect_true(any(grepl("GeomErrorbar", layer_classes)))
-  expect_true(any(grepl("GeomLine",     layer_classes)))
-
-  # ── Test it doesn't error with different inputs ────────────────────────
-  expect_no_error(
-    bbmake_pairwise_plot(
-      emm      = emm,
-      pw_table = pw_table,
-      formula  = ~ Stim | Group,
-      y.adjust = 5
-    )
-  )
-
+  layer_classes <- vapply(p$layers, function(l) class(l$geom)[[1]], character(1))
+  expect_true(any(grepl("Pointrange", layer_classes)))
+  # Facet by Group should be present
+  expect_true(!is.null(p$facet))
+  expect_false(inherits(p$facet, "FacetNull"))
 })
 
+test_that("bbmake_pairwise_plot accepts explicit pw and x as string", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
 
-# Optional second test block for multiple comparisons / vector y.adjust
-test_that("bbmake_pairwise_plot handles multiple contrasts", {
-  dat <- setup_data()
-  emm      <- dat$emm
-  pw_table <- dat$pw_table
-
-  pw_table_multi <- pw_table |>
-    slice(1:2)   # pretend we have two rows
-
-  expect_no_error(
-    bbmake_pairwise_plot(
-      emm      = emm,
-      pw_table = pw_table_multi,
-      formula  = ~ Stim | Group,
-      y.adjust = c(2, 5)  # test vector input
+  s <- setup_plot_data()
+  expect_no_error({
+    p <- bbmake_pairwise_plot(
+      s$emm,
+      x = "Stim",
+      pw = s$pw,
+      model = s$mod,
+      y.adjust = 0.5
     )
+  })
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("bbmake_pairwise_plot accepts bare-name x and custom facets", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
+
+  s <- setup_plot_data()
+  p <- bbmake_pairwise_plot(
+    s$emm,
+    x = Stim,
+    facets = ~ Group,
+    pw = s$pw,
+    connect = TRUE,
+    show_zero_line = FALSE,
+    annotate_effect = FALSE
   )
+  expect_s3_class(p, "ggplot")
+
+  layer_classes <- vapply(p$layers, function(l) class(l$geom)[[1]], character(1))
+  expect_true(any(grepl("Line", layer_classes)))
+})
+
+test_that("bbmake_pairwise_plot works with prebuilt pw_table", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
+
+  s <- setup_plot_data()
+  tab <- bbmake_pairwise_table(s$pw, model = s$mod)
+
+  p <- bbmake_pairwise_plot(s$emm, pw_table = tab, model = s$mod)
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("bbmake_pairwise_plot can suppress facets", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
+
+  s <- setup_plot_data()
+  p <- bbmake_pairwise_plot(s$emm, facets = FALSE, pw = s$pw)
+  expect_s3_class(p, "ggplot")
+  expect_true(inherits(p$facet, "FacetNull"))
+})
+
+test_that("helpers compose into a custom ggplot like the user snippet", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
+
+  s <- setup_plot_data()
+  df  <- bb_emm_df(s$emm)
+  sig <- bb_pairwise_labels(s$pw, emm = s$emm, model = s$mod)
+
+  p <- ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
+    geom_pointrange(size = 0.9, linewidth = 0.9, color = "black") +
+    facet_wrap(~ Group) +
+    ggpubr::stat_pvalue_manual(
+      sig,
+      label = "p.signif",
+      xmin = "group1",
+      xmax = "group2",
+      y.position = "y.position",
+      tip.length = 0.01
+    ) +
+    labs(x = "Stimulation", y = "Response")
+
+  expect_s3_class(p, "ggplot")
 })
