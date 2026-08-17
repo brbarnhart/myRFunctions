@@ -18,8 +18,9 @@ bbmake_pairwise_plot(
   annotate_effect = TRUE,
   hjust = 1.05,
   vjust = 1.3,
-  point_size = 0.9,
+  point_size = 2,
   linewidth = 0.9,
+  errorbar_width = 0.2,
   show_zero_line = TRUE,
   color = "black",
   ...
@@ -60,9 +61,12 @@ of y-range). See \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
 \item{hjust, vjust}{Position adjustments for the effect-size annotation
 (placed at \code{x = Inf}, \code{y = Inf}).}
 
-\item{point_size}{Size passed to \code{\link[ggplot2:geom_linerange]{ggplot2::geom_pointrange()}} (\code{size}).}
+\item{point_size}{Size passed to \code{\link[ggplot2:geom_point]{ggplot2::geom_point()}} (\code{size}).}
 
-\item{linewidth}{Line width for pointrange (and connecting lines).}
+\item{linewidth}{Line width for error bars and connecting lines.}
+
+\item{errorbar_width}{Horizontal width of the T-caps on
+\code{\link[ggplot2:geom_linerange]{ggplot2::geom_errorbar()}}.}
 
 \item{show_zero_line}{If \code{TRUE}, draw a horizontal line at y = 0.}
 
@@ -75,9 +79,9 @@ A ggplot object. Add labels/themes with \code{+} as usual.
 }
 \description{
 High-level convenience wrapper around \code{\link[=bb_emm_df]{bb_emm_df()}} and
-\code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}. Builds a ggplot with point-ranges, optional
-connecting lines, faceting by by-variables, significance brackets, and
-a single effect-size annotation per panel.
+\code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}. Builds a ggplot with points, T-capped 95\% CI
+error bars, optional connecting lines, faceting by by-variables,
+significance brackets, and a single effect-size annotation per panel.
 }
 \details{
 For custom layouts, call the helpers yourself and layer geoms manually.
@@ -96,7 +100,8 @@ bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
 df  <- bb_emm_df(emm)
 sig <- bb_pairwise_labels(pairs(emm), emm = emm)
 ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
-  geom_pointrange() +
+  geom_errorbar(width = 0.2) +
+  geom_point() +
   facet_grid(Diet ~ Sex) +
   ggpubr::stat_pvalue_manual(
     sig, label = "p.signif",

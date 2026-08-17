@@ -1,9 +1,9 @@
 #' Create a pairwise comparison plot from emmeans
 #'
 #' High-level convenience wrapper around [bb_emm_df()] and
-#' [bb_pairwise_labels()]. Builds a ggplot with point-ranges, optional
-#' connecting lines, faceting by by-variables, significance brackets, and
-#' a single effect-size annotation per panel.
+#' [bb_pairwise_labels()]. Builds a ggplot with points, T-capped 95% CI
+#' error bars, optional connecting lines, faceting by by-variables,
+#' significance brackets, and a single effect-size annotation per panel.
 #'
 #' For custom layouts, call the helpers yourself and layer geoms manually.
 #'
@@ -29,8 +29,10 @@
 #'   (first contrast in that panel).
 #' @param hjust,vjust Position adjustments for the effect-size annotation
 #'   (placed at `x = Inf`, `y = Inf`).
-#' @param point_size Size passed to [ggplot2::geom_pointrange()] (`size`).
-#' @param linewidth Line width for pointrange (and connecting lines).
+#' @param point_size Size passed to [ggplot2::geom_point()] (`size`).
+#' @param linewidth Line width for error bars and connecting lines.
+#' @param errorbar_width Horizontal width of the T-caps on
+#'   [ggplot2::geom_errorbar()].
 #' @param show_zero_line If `TRUE`, draw a horizontal line at y = 0.
 #' @param color Color for points / lines / error bars.
 #' @param ... Additional arguments reserved for future use (currently unused).
@@ -51,7 +53,8 @@
 #' df  <- bb_emm_df(emm)
 #' sig <- bb_pairwise_labels(pairs(emm), emm = emm)
 #' ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
-#'   geom_pointrange() +
+#'   geom_errorbar(width = 0.2) +
+#'   geom_point() +
 #'   facet_grid(Diet ~ Sex) +
 #'   ggpubr::stat_pvalue_manual(
 #'     sig, label = "p.signif",
@@ -73,8 +76,9 @@ bbmake_pairwise_plot <- function(
     annotate_effect = TRUE,
     hjust = 1.05,
     vjust = 1.3,
-    point_size = 0.9,
+    point_size = 2,
     linewidth = 0.9,
+    errorbar_width = 0.2,
     show_zero_line = TRUE,
     color = "black",
     ...
@@ -119,16 +123,23 @@ bbmake_pairwise_plot <- function(
 
   # ── Base plot ───────────────────────────────────────────────────────────
   p <- ggplot2::ggplot(emm_df) +
-    ggplot2::geom_pointrange(
+    ggplot2::geom_errorbar(
       ggplot2::aes(
         x    = .data[[x_name]],
-        y    = .data$y,
         ymin = .data$ymin,
         ymax = .data$ymax
       ),
-      size      = point_size,
+      width     = errorbar_width,
       linewidth = linewidth,
       color     = color
+    ) +
+    ggplot2::geom_point(
+      ggplot2::aes(
+        x = .data[[x_name]],
+        y = .data$y
+      ),
+      size  = point_size,
+      color = color
     )
 
   if (isTRUE(connect)) {

@@ -44,7 +44,8 @@ test_that("bbmake_pairwise_plot returns a ggplot with auto pairs + facets", {
   expect_true(inherits(p, "gg"))
 
   layer_classes <- vapply(p$layers, function(l) class(l$geom)[[1]], character(1))
-  expect_true(any(grepl("Pointrange", layer_classes)))
+  expect_true(any(grepl("Errorbar", layer_classes)))
+  expect_true(any(grepl("Point", layer_classes)))
   # Facet by Group should be present
   expect_true(!is.null(p$facet))
   expect_false(inherits(p$facet, "FacetNull"))
@@ -122,7 +123,8 @@ test_that("helpers compose into a custom ggplot like the user snippet", {
   sig <- bb_pairwise_labels(s$pw, emm = s$emm, model = s$mod)
 
   p <- ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
-    geom_pointrange(size = 0.9, linewidth = 0.9, color = "black") +
+    geom_errorbar(width = 0.2, linewidth = 0.9, color = "black") +
+    geom_point(size = 2, color = "black") +
     facet_wrap(~ Group) +
     ggpubr::stat_pvalue_manual(
       sig,
