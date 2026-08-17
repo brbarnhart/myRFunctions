@@ -77,8 +77,8 @@ bbmake_pairwise_plot <- function(
     hjust = 1.05,
     vjust = 1.3,
     point_size = 2,
-    linewidth = 0.9,
-    errorbar_width = 0.2,
+    linewidth = 0.6,
+    errorbar_width = 0.15,
     show_zero_line = TRUE,
     color = "black",
     ...
