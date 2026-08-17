@@ -205,12 +205,12 @@ bb_pairwise_labels <- function(
   if ("d" %in% names(df)) {
     df |>
       dplyr::mutate(
-        effect_annotation = sprintf("Cohen's d = %.2f", abs(.data$d))
+        effect_annotation = sprintf("Cohen's d = %.2f", .data$d)
       )
   } else if ("Cohen's d" %in% names(df)) {
     df |>
       dplyr::mutate(
-        effect_annotation = sprintf("Cohen's d = %.2f", abs(.data[["Cohen's d"]]))
+        effect_annotation = sprintf("Cohen's d = %.2f", .data[["Cohen's d"]])
       )
   } else if ("IRR" %in% names(df)) {
     df |>
