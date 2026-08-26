@@ -102,6 +102,41 @@ test_that("bbmake_pairwise_plot works with prebuilt pw_table", {
   expect_s3_class(p, "ggplot")
 })
 
+test_that("bbmake_pairwise_plot y_expand defaults and overrides", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
+
+  s <- setup_plot_data()
+  p_ann <- bbmake_pairwise_plot(s$emm, pw = s$pw, annotate_effect = TRUE)
+  p_off <- bbmake_pairwise_plot(s$emm, pw = s$pw, annotate_effect = FALSE)
+  p_vec <- bbmake_pairwise_plot(
+    s$emm, pw = s$pw, annotate_effect = TRUE, y_expand = c(0.05, 0.4)
+  )
+  p_exp <- bbmake_pairwise_plot(
+    s$emm,
+    pw = s$pw,
+    y_expand = ggplot2::expansion(mult = c(0.01, 0.5), add = c(0, 1))
+  )
+
+  expect_equal(
+    p_ann$scales$get_scales("y")$expand,
+    ggplot2::expansion(mult = c(0.02, 0.28))
+  )
+  expect_equal(
+    p_off$scales$get_scales("y")$expand,
+    ggplot2::expansion(mult = c(0.02, 0.18))
+  )
+  expect_equal(
+    p_vec$scales$get_scales("y")$expand,
+    ggplot2::expansion(mult = c(0.05, 0.4))
+  )
+  expect_equal(
+    p_exp$scales$get_scales("y")$expand,
+    ggplot2::expansion(mult = c(0.01, 0.5), add = c(0, 1))
+  )
+})
+
 test_that("bbmake_pairwise_plot can suppress facets", {
   skip_if_not_installed("lmerTest")
   skip_if_not_installed("emmeans")

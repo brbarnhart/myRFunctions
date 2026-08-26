@@ -16,11 +16,12 @@ bbmake_pairwise_plot(
   y.adjust = 0,
   step = 0.08,
   annotate_effect = TRUE,
+  y_expand = NULL,
   hjust = 1.05,
   vjust = 1.3,
   point_size = 2,
-  linewidth = 0.9,
-  errorbar_width = 0.2,
+  linewidth = 0.6,
+  errorbar_width = 0.15,
   show_zero_line = TRUE,
   color = "black",
   ...
@@ -56,7 +57,17 @@ along \code{x} (grouped by by-variables).}
 of y-range). See \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
 
 \item{annotate_effect}{If \code{TRUE}, draw one effect-size label per panel
-(first contrast in that panel).}
+(first contrast in that panel). When \code{y_expand} is \code{NULL}, this also
+uses extra top padding so the annotation is not cramped against the
+panel edge.}
+
+\item{y_expand}{Y-axis range expansion passed to
+\code{\link[ggplot2:scale_continuous]{ggplot2::scale_y_continuous()}}. \code{NULL} (default) uses
+\code{expansion(mult = c(0.02, 0.28))} when \code{annotate_effect} is \code{TRUE}
+and \code{expansion(mult = c(0.02, 0.18))} otherwise. A numeric of length
+1 or 2 is treated as multiplicative padding
+(\code{expansion(mult = y_expand)}). Otherwise pass the result of
+\code{\link[ggplot2:expansion]{ggplot2::expansion()}}.}
 
 \item{hjust, vjust}{Position adjustments for the effect-size annotation
 (placed at \code{x = Inf}, \code{y = Inf}).}
@@ -95,6 +106,9 @@ bbmake_pairwise_plot(emm) +
 
 # Custom pairs
 bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
+
+# Extra top padding (multiplicative c(bottom, top))
+bbmake_pairwise_plot(emm, y_expand = c(0.02, 0.4))
 
 # Deeper control with helpers
 df  <- bb_emm_df(emm)

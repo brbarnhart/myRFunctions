@@ -26,7 +26,16 @@
 #' @param step Stacking step for multiple brackets within a panel (fraction
 #'   of y-range). See [bb_pairwise_labels()].
 #' @param annotate_effect If `TRUE`, draw one effect-size label per panel
-#'   (first contrast in that panel).
+#'   (first contrast in that panel). When `y_expand` is `NULL`, this also
+#'   uses extra top padding so the annotation is not cramped against the
+#'   panel edge.
+#' @param y_expand Y-axis range expansion passed to
+#'   [ggplot2::scale_y_continuous()]. `NULL` (default) uses
+#'   `expansion(mult = c(0.02, 0.28))` when `annotate_effect` is `TRUE`
+#'   and `expansion(mult = c(0.02, 0.18))` otherwise. A numeric of length
+#'   1 or 2 is treated as multiplicative padding
+#'   (`expansion(mult = y_expand)`). Otherwise pass the result of
+#'   [ggplot2::expansion()].
 #' @param hjust,vjust Position adjustments for the effect-size annotation
 #'   (placed at `x = Inf`, `y = Inf`).
 #' @param point_size Size passed to [ggplot2::geom_point()] (`size`).
@@ -48,6 +57,9 @@
 #'
 #' # Custom pairs
 #' bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
+#'
+#' # Extra top padding (multiplicative c(bottom, top))
+#' bbmake_pairwise_plot(emm, y_expand = c(0.02, 0.4))
 #'
 #' # Deeper control with helpers
 #' df  <- bb_emm_df(emm)
@@ -74,6 +86,7 @@ bbmake_pairwise_plot <- function(
     y.adjust = 0,
     step = 0.08,
     annotate_effect = TRUE,
+    y_expand = NULL,
     hjust = 1.05,
     vjust = 1.3,
     point_size = 2,
@@ -200,11 +213,24 @@ bbmake_pairwise_plot <- function(
 
   p +
     ggplot2::scale_y_continuous(
-      expand = ggplot2::expansion(mult = c(0.02, 0.18))
+      expand = .bb_resolve_y_expand(y_expand, annotate_effect)
     )
 }
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+#' @keywords internal
+.bb_resolve_y_expand <- function(y_expand, annotate_effect) {
+  if (is.null(y_expand)) {
+    return(ggplot2::expansion(
+      mult = c(0.02, if (isTRUE(annotate_effect)) 0.28 else 0.18)
+    ))
+  }
+  if (is.numeric(y_expand) && length(y_expand) %in% c(1L, 2L)) {
+    return(ggplot2::expansion(mult = y_expand))
+  }
+  y_expand
+}
 
 #' @keywords internal
 .bb_resolve_x <- function(x_quo, pri_vars, emm_df) {
