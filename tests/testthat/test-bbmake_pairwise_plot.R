@@ -102,6 +102,41 @@ test_that("bbmake_pairwise_plot works with prebuilt pw_table", {
   expect_s3_class(p, "ggplot")
 })
 
+annotation_text_size <- function(p) {
+  built <- ggplot2::ggplot_build(p)
+  sizes <- vapply(built$data, function(d) {
+    if ("label" %in% names(d) && "size" %in% names(d) && any(is.infinite(d$x))) {
+      as.numeric(d$size[[1]])
+    } else {
+      NA_real_
+    }
+  }, numeric(1))
+  sizes <- sizes[!is.na(sizes)]
+  if (length(sizes) == 0L) {
+    return(NA_real_)
+  }
+  sizes[[1]]
+}
+
+test_that("effect annotation text size follows the plot theme", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
+  skip_if(
+    utils::packageVersion("ggplot2") < "4.0.0",
+    "theme-inherited geom text size requires ggplot2 >= 4.0.0"
+  )
+
+  s <- setup_plot_data()
+  p <- bbmake_pairwise_plot(s$emm, pw = s$pw, model = s$mod)
+
+  size_small <- annotation_text_size(p + ggplot2::theme_grey(base_size = 11))
+  size_large <- annotation_text_size(p + ggplot2::theme_grey(base_size = 22))
+
+  expect_false(is.na(size_small))
+  expect_equal(size_large, size_small * 2, tolerance = 1e-6)
+})
+
 test_that("bbmake_pairwise_plot y_expand defaults and overrides", {
   skip_if_not_installed("lmerTest")
   skip_if_not_installed("emmeans")

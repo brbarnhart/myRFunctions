@@ -37,7 +37,9 @@
 #'   (`expansion(mult = y_expand)`). Otherwise pass the result of
 #'   [ggplot2::expansion()].
 #' @param hjust,vjust Position adjustments for the effect-size annotation
-#'   (placed at `x = Inf`, `y = Inf`).
+#'   (placed at `x = Inf`, `y = Inf`). Text size is not hardcoded: it
+#'   follows the plot theme (ggplot2 4.0+: `theme_*(base_size)` or
+#'   `theme(geom = element_geom(fontsize = ...))`).
 #' @param point_size Size passed to [ggplot2::geom_point()] (`size`).
 #' @param linewidth Line width for error bars and connecting lines.
 #' @param errorbar_width Horizontal width of the T-caps on
@@ -205,7 +207,6 @@ bbmake_pairwise_plot <- function(
           ggplot2::aes(label = .data$effect_annotation),
           x = Inf, y = Inf,
           hjust = hjust, vjust = vjust,
-          size = 4.2,
           inherit.aes = FALSE
         )
     }

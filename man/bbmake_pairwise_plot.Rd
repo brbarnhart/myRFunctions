@@ -70,7 +70,9 @@ and \code{expansion(mult = c(0.02, 0.18))} otherwise. A numeric of length
 \code{\link[ggplot2:expansion]{ggplot2::expansion()}}.}
 
 \item{hjust, vjust}{Position adjustments for the effect-size annotation
-(placed at \code{x = Inf}, \code{y = Inf}).}
+(placed at \code{x = Inf}, \code{y = Inf}). Text size is not hardcoded: it
+follows the plot theme (ggplot2 4.0+: \code{theme_*(base_size)} or
+\code{theme(geom = element_geom(fontsize = ...))}).}
 
 \item{point_size}{Size passed to \code{\link[ggplot2:geom_point]{ggplot2::geom_point()}} (\code{size}).}
 
