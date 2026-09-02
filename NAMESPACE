@@ -3,6 +3,7 @@
 export(bb_emm_df)
 export(bb_ggbarplot)
 export(bb_pairwise_labels)
+export(bbmake_lrt_table)
 export(bbmake_model_table)
 export(bbmake_pairwise_plot)
 export(bbmake_pairwise_table)
