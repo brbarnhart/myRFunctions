@@ -344,6 +344,84 @@ pr_motivation |>
   )
 ```
 
+# `bb_add_errorbar()`
+
+Model-based intervals from `emmeans()` on an existing ggplot. Default `interval = "ci"` uses the emmeans confidence limits (backtransformed when the grid was created with `type = "response"`). `interval = "sem"` is estimate ± SE on the plotted scale.
+
+## CI on dodged bars
+
+Look for: T-capped error bars on each Cont/Opto bar, aligned with the dodge, plus the pairwise brackets from above.
+
+```{r add-errorbar-dodge, fig.height=5, fig.width=9}
+pr_motivation |>
+  ggplot(aes(
+    x = interaction(Diet, Satiety),
+    y = Breakpoint,
+    fill = Stim
+  )) +
+  geom_bar(
+    stat = "summary",
+    fun = mean,
+    width = col_width,
+    position = position_dodge(width = col_width)
+  ) +
+  geom_point(
+    position = position_jitterdodge(
+      dodge.width = col_width,
+      jitter.width = col_width / 3
+    )
+  ) +
+  facet_wrap(~ Sex) +
+  bb_add_errorbar(emm_pr) +
+  bb_add_pairwise(pw_pr, hide.ns = TRUE) +
+  labs(
+    title = "bb_add_errorbar() + bb_add_pairwise()",
+    subtitle = "emmeans CIs (interval = \"ci\")",
+    x = "Diet × Satiety",
+    y = "Breakpoint"
+  )
+```
+
+## Backtransformed CI vs SEM (Poisson / log link)
+
+Look for: CI whiskers that are **asymmetric** around the mean (longer above than below on the count scale). SEM whiskers that are **symmetric**. The CI is what you want after `type = "response"`.
+
+```{r add-errorbar-poisson, fig.height=4.8, fig.width=9}
+set.seed(1)
+pois_dat <- expand.grid(
+  Stim  = factor(c("Cont", "Opto")),
+  Group = factor(c("A", "B")),
+  rep   = 1:16
+) |>
+  as_tibble() |>
+  mutate(y = rpois(n(), lambda = ifelse(Stim == "Opto", 8, 3)))
+
+mod_pois <- glm(y ~ Stim * Group, data = pois_dat, family = poisson)
+emm_pois <- emmeans(mod_pois, ~ Stim | Group, type = "response")
+
+p_ci <- ggplot(pois_dat, aes(x = Group, y = y, fill = Stim)) +
+  geom_bar(
+    stat = "summary", fun = mean,
+    width = 0.8, position = position_dodge(width = 0.8)
+  ) +
+  bb_add_errorbar(emm_pois, interval = "ci") +
+  labs(title = "interval = \"ci\" (backtransformed)", y = "Count")
+
+p_sem <- ggplot(pois_dat, aes(x = Group, y = y, fill = Stim)) +
+  geom_bar(
+    stat = "summary", fun = mean,
+    width = 0.8, position = position_dodge(width = 0.8)
+  ) +
+  bb_add_errorbar(emm_pois, interval = "sem") +
+  labs(title = "interval = \"sem\" (± 1 SE)", y = "Count")
+
+p_ci
+```
+
+```{r add-errorbar-poisson-sem, fig.height=4.8, fig.width=9}
+p_sem
+```
+
 # `bb_ggbarplot()`
 
 ```{r bar-data}
@@ -382,6 +460,24 @@ bb_ggbarplot(
   add_hline = FALSE
 ) +
   labs(title = "add_points = FALSE, add_hline = FALSE", y = "Score")
+```
+
+## With `pw` (via `bb_add_pairwise()`)
+
+Look for: the default bar plot plus a bracket spanning the dodged Cont vs Stim bars in each `group`.
+
+```{r bar-pairwise, fig.height=4.5}
+mod_bar <- lm(score ~ group * condition, data = bar_dat)
+pw_bar <- emmeans(mod_bar, ~ condition | group) |> pairs(reverse = TRUE)
+
+bb_ggbarplot(
+  bar_dat,
+  x = "group",
+  y = "score",
+  fill = "condition",
+  pw = pw_bar
+) +
+  labs(title = "bb_ggbarplot(..., pw = pairs(emmeans(~ condition | group)))", y = "Score")
 ```
 
 # Tables (quick glance)

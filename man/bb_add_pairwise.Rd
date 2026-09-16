@@ -73,13 +73,15 @@ facets automatically.
 omitted, it is inferred from dodge / jitter-dodge layers.
 
 Bracket height is \code{y.fun} of the plotted \code{y} values in each cell (default
-\link{max}, so brackets sit above jittered points), plus padding. Use
-\code{y.fun = mean} if the plot shows bars of means without points.
+\link{max}, so brackets sit above jittered points), plus padding. If the data
+have \code{ymin} / \code{ymax} (as from \code{\link[=bb_emm_df]{bb_emm_df()}}), the CI upper bound is used
+so brackets clear error bars. Use \code{y.fun = mean} if the plot shows bars
+of means without points.
 }
 \examples{
 \dontrun{
-pw <- emmeans(mod, ~ Stim | Sex * Diet * Satiety, type = "response") |>
-  pairs(reverse = TRUE)
+emm <- emmeans(mod, ~ Stim | Sex * Diet * Satiety, type = "response")
+pw  <- pairs(emm, reverse = TRUE)
 
 ggplot(df, aes(x = interaction(Diet, Satiety), y = Breakpoint, fill = Stim)) +
   geom_bar(
@@ -88,9 +90,10 @@ ggplot(df, aes(x = interaction(Diet, Satiety), y = Breakpoint, fill = Stim)) +
   ) +
   geom_point(position = position_jitterdodge(dodge.width = 0.8)) +
   facet_wrap(~ Sex) +
+  bb_add_errorbar(emm) +
   bb_add_pairwise(pw, hide.ns = TRUE)
 }
 }
 \seealso{
-\code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}, \code{\link[=bbmake_pairwise_plot]{bbmake_pairwise_plot()}}
+\code{\link[=bb_add_errorbar]{bb_add_errorbar()}}, \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}, \code{\link[=bbmake_pairwise_plot]{bbmake_pairwise_plot()}}
 }

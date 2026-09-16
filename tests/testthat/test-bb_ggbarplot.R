@@ -2,6 +2,7 @@
 
 library(testthat)
 library(ggplot2)
+library(ggpubr)
 
 setup_bar_data <- function() {
   set.seed(1)
@@ -29,6 +30,25 @@ test_that("bb_ggbarplot returns a ggplot with bars, points, and zero line", {
   layer_classes <- vapply(p$layers, function(l) class(l$geom)[[1]], character(1))
   expect_true(any(grepl("Point", layer_classes)))
   expect_true(any(grepl("Hline", layer_classes)))
+})
+
+test_that("bb_ggbarplot adds pairwise brackets when pw is supplied", {
+  skip_if_not_installed("ggpubr")
+  skip_if_not_installed("ggplot2")
+  skip_if_not_installed("emmeans")
+
+  dat <- setup_bar_data()
+  mod <- lm(score ~ group * condition, data = dat)
+  emm <- emmeans::emmeans(mod, ~ condition | group)
+  pw <- emmeans::contrast(emm, method = "revpairwise")
+
+  p <- bb_ggbarplot(dat, x = "group", y = "score", fill = "condition", pw = pw)
+  expect_s3_class(p, "ggplot")
+
+  built <- ggplot2::ggplot_build(p)
+  br <- built$data[[length(built$data)]]
+  expect_true("annotation" %in% names(br) || "label" %in% names(br))
+  expect_true(all(c("xmin", "xmax") %in% names(br)))
 })
 
 test_that("bb_ggbarplot can suppress points and hline", {

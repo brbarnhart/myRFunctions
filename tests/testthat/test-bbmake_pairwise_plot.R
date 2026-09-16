@@ -189,22 +189,17 @@ test_that("helpers compose into a custom ggplot like the user snippet", {
   skip_if_not_installed("ggpubr")
 
   s <- setup_plot_data()
-  df  <- bb_emm_df(s$emm)
-  sig <- bb_pairwise_labels(s$pw, emm = s$emm, model = s$mod)
+  df <- bb_emm_df(s$emm)
 
   p <- ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
     geom_errorbar(width = 0.2, linewidth = 0.9, color = "black") +
     geom_point(size = 2, color = "black") +
     facet_wrap(~ Group) +
-    ggpubr::stat_pvalue_manual(
-      sig,
-      label = "p.signif",
-      xmin = "group1",
-      xmax = "group2",
-      y.position = "y.position",
-      tip.length = 0.01
-    ) +
+    bb_add_pairwise(s$pw) +
     labs(x = "Stimulation", y = "Response")
 
   expect_s3_class(p, "ggplot")
+  built <- ggplot_build(p)
+  br <- built$data[[length(built$data)]]
+  expect_true("annotation" %in% names(br) || "label" %in% names(br))
 })

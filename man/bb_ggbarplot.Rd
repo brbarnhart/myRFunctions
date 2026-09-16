@@ -16,6 +16,8 @@ bb_ggbarplot(
   point.color = "gray10",
   add_hline = TRUE,
   add_points = TRUE,
+  pw = NULL,
+  hide.ns = FALSE,
   ...
 )
 }
@@ -38,6 +40,11 @@ bar width.}
 \item{add_points}{If \code{TRUE}, overlay jittered individual points aligned to
 the dodged bars.}
 
+\item{pw}{Optional \code{pairs(emmeans(...))} result (or a pairwise data frame)
+added with \code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.}
+
+\item{hide.ns}{Passed to \code{\link[=bb_add_pairwise]{bb_add_pairwise()}} when \code{pw} is supplied.}
+
 \item{...}{Additional arguments passed to \code{\link[ggpubr:ggbarplot]{ggpubr::ggbarplot()}}.}
 }
 \value{
@@ -47,10 +54,18 @@ A ggplot object.
 Thin wrapper around \code{\link[ggpubr:ggbarplot]{ggpubr::ggbarplot()}} that applies a consistent theme
 and fill palette, optionally overlays individual points (jitter-dodged to
 match the bars), and optionally draws a horizontal line at y = 0.
+Pass \code{pw} (from \code{pairs(emmeans(...))}) to add significance brackets via
+\code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.
 }
 \examples{
 \dontrun{
 bb_ggbarplot(df, x = "group", y = "score", fill = "condition") +
   labs(y = "Score")
+
+pw <- emmeans(mod, ~ condition | group) |> pairs(reverse = TRUE)
+bb_ggbarplot(df, x = "group", y = "score", fill = "condition", pw = pw)
 }
+}
+\seealso{
+\code{\link[=bb_add_pairwise]{bb_add_pairwise()}}
 }

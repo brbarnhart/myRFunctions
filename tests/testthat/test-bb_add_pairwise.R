@@ -207,3 +207,37 @@ test_that("bb_add_pairwise errors when contrast groups cannot be mapped", {
 
   expect_error(p + bb_add_pairwise(s$pw), "fill/colour/group")
 })
+
+test_that("bb_add_pairwise uses ymax when CI columns are present", {
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggplot2")
+  skip_if_not_installed("ggpubr")
+
+  set.seed(1)
+  dat <- expand.grid(
+    Stim = factor(c("Low", "Med", "High"), levels = c("Low", "Med", "High")),
+    Group = factor(c("Control", "Treatment")),
+    rep = 1:6
+  ) |>
+    as_tibble() |>
+    mutate(y = 10 + as.numeric(Stim) + as.numeric(Group) + rnorm(n()))
+
+  mod <- lm(y ~ Stim * Group, data = dat)
+  emm <- emmeans(mod, ~ Stim | Group)
+  pw <- pairs(emm)
+  df <- bb_emm_df(emm)
+
+  dummy <- ggplot(df, aes(x = Stim, y = y)) +
+    geom_point() +
+    facet_wrap(~Group)
+  sig <- myRFunctions:::.bb_pairwise_layer_data(
+    bb_add_pairwise(pw, y.adjust = 0, step = 0),
+    dummy
+  )
+
+  for (g in unique(as.character(df$Group))) {
+    expected <- max(df$ymax[df$Group == g], na.rm = TRUE)
+    got <- unique(sig$y.position[as.character(sig$Group) == g])
+    expect_equal(got, expected)
+  }
+})

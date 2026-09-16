@@ -3,6 +3,8 @@
 #' Thin wrapper around [ggpubr::ggbarplot()] that applies a consistent theme
 #' and fill palette, optionally overlays individual points (jitter-dodged to
 #' match the bars), and optionally draws a horizontal line at y = 0.
+#' Pass `pw` (from `pairs(emmeans(...))`) to add significance brackets via
+#' [bb_add_pairwise()].
 #'
 #' @param data A data frame.
 #' @param x,y,fill Character names of columns mapped to x, y, and fill
@@ -15,14 +17,21 @@
 #' @param add_hline If `TRUE`, draw a horizontal line at y = 0.
 #' @param add_points If `TRUE`, overlay jittered individual points aligned to
 #'   the dodged bars.
+#' @param pw Optional `pairs(emmeans(...))` result (or a pairwise data frame)
+#'   added with [bb_add_pairwise()].
+#' @param hide.ns Passed to [bb_add_pairwise()] when `pw` is supplied.
 #' @param ... Additional arguments passed to [ggpubr::ggbarplot()].
 #'
 #' @return A ggplot object.
 #' @export
+#' @seealso [bb_add_pairwise()]
 #' @examples
 #' \dontrun{
 #' bb_ggbarplot(df, x = "group", y = "score", fill = "condition") +
 #'   labs(y = "Score")
+#'
+#' pw <- emmeans(mod, ~ condition | group) |> pairs(reverse = TRUE)
+#' bb_ggbarplot(df, x = "group", y = "score", fill = "condition", pw = pw)
 #' }
 bb_ggbarplot <- function(
     data,
@@ -36,6 +45,8 @@ bb_ggbarplot <- function(
     point.color = "gray10",
     add_hline = TRUE,
     add_points = TRUE,
+    pw = NULL,
+    hide.ns = FALSE,
     ...
 ) {
   p <- ggpubr::ggbarplot(
@@ -79,6 +90,15 @@ bb_ggbarplot <- function(
         yintercept = 0,
         linetype = "solid",
         color = "black"
+      )
+  }
+
+  if (!is.null(pw)) {
+    p <- p +
+      bb_add_pairwise(
+        pw,
+        dodge_width = dodge_width,
+        hide.ns = hide.ns
       )
   }
 

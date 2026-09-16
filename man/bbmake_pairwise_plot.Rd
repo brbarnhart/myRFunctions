@@ -22,6 +22,8 @@ bbmake_pairwise_plot(
   point_size = 2,
   linewidth = 0.6,
   errorbar_width = 0.15,
+  interval = c("ci", "sem"),
+  sem_mult = 1,
   show_zero_line = TRUE,
   color = "black",
   ...
@@ -49,12 +51,12 @@ both \code{pw} and \code{pw_table} are \code{NULL}.}
 \item{connect}{If \code{TRUE}, draw lines connecting points within each panel
 along \code{x} (grouped by by-variables).}
 
-\item{hide.ns}{Passed to \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
+\item{hide.ns}{Passed to \code{\link[=bb_add_pairwise]{bb_add_pairwise()}} and \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
 
 \item{y.adjust}{Vertical nudge for significance brackets.}
 
 \item{step}{Stacking step for multiple brackets within a panel (fraction
-of y-range). See \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
+of y-range). See \code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.}
 
 \item{annotate_effect}{If \code{TRUE}, draw one effect-size label per panel
 (first contrast in that panel). When \code{y_expand} is \code{NULL}, this also
@@ -81,6 +83,13 @@ follows the plot theme (ggplot2 4.0+: \code{theme_*(base_size)} or
 \item{errorbar_width}{Horizontal width of the T-caps on
 \code{\link[ggplot2:geom_errorbar]{ggplot2::geom_errorbar()}}.}
 
+\item{interval}{\code{"ci"} (default) uses emmeans confidence limits (the
+backtransformed limits when the grid was created with
+\code{type = "response"}). \code{"sem"} uses the estimate ± \code{sem_mult} times
+the emmeans SE. See \code{\link[=bb_add_errorbar]{bb_add_errorbar()}}.}
+
+\item{sem_mult}{Multiplier for \code{interval = "sem"}. Default \code{1}.}
+
 \item{show_zero_line}{If \code{TRUE}, draw a horizontal line at y = 0.}
 
 \item{color}{Color for points / lines / error bars.}
@@ -92,13 +101,13 @@ A ggplot object. Add labels/themes with \code{+} as usual.
 }
 \description{
 High-level convenience wrapper around \code{\link[=bb_emm_df]{bb_emm_df()}} and
-\code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}. Builds a ggplot with points, T-capped 95\% CI
+\code{\link[=bb_add_pairwise]{bb_add_pairwise()}}. Builds a ggplot with points, T-capped 95\% CI
 error bars, optional connecting lines, faceting by by-variables,
 significance brackets, and a single effect-size annotation per panel.
 }
 \details{
-For custom layouts, call the helpers yourself and layer geoms manually,
-or add pairwise brackets to an existing ggplot with \code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.
+For custom layouts, call the helpers yourself and add intervals /
+brackets with \code{\link[=bb_add_errorbar]{bb_add_errorbar()}} and \code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.
 }
 \examples{
 \dontrun{
@@ -114,16 +123,11 @@ bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
 bbmake_pairwise_plot(emm, y_expand = c(0.02, 0.4))
 
 # Deeper control with helpers
-df  <- bb_emm_df(emm)
-sig <- bb_pairwise_labels(pairs(emm), emm = emm)
-ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
-  geom_errorbar(width = 0.2) +
+df <- bb_emm_df(emm)
+ggplot(df, aes(x = Stim, y = y, fill = Diet)) +
   geom_point() +
-  facet_grid(Diet ~ Sex) +
-  ggpubr::stat_pvalue_manual(
-    sig, label = "p.signif",
-    xmin = "group1", xmax = "group2",
-    y.position = "y.position"
-  )
+  facet_wrap(~ Sex) +
+  bb_add_errorbar(emm) +
+  bb_add_pairwise(pairs(emm))
 }
 }

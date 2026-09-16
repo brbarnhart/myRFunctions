@@ -10,8 +10,10 @@
 #' omitted, it is inferred from dodge / jitter-dodge layers.
 #'
 #' Bracket height is `y.fun` of the plotted `y` values in each cell (default
-#' [max], so brackets sit above jittered points), plus padding. Use
-#' `y.fun = mean` if the plot shows bars of means without points.
+#' [max], so brackets sit above jittered points), plus padding. If the data
+#' have `ymin` / `ymax` (as from [bb_emm_df()]), the CI upper bound is used
+#' so brackets clear error bars. Use `y.fun = mean` if the plot shows bars
+#' of means without points.
 #'
 #' @param pw An `emmGrid` of pairwise contrasts (e.g. `pairs(emm)`), or a
 #'   data frame with `contrast`, `p.value`, and any by-variable columns.
@@ -40,11 +42,11 @@
 #'
 #' @return An object that can be added to a ggplot with `+`.
 #' @export
-#' @seealso [bb_pairwise_labels()], [bbmake_pairwise_plot()]
+#' @seealso [bb_add_errorbar()], [bb_pairwise_labels()], [bbmake_pairwise_plot()]
 #' @examples
 #' \dontrun{
-#' pw <- emmeans(mod, ~ Stim | Sex * Diet * Satiety, type = "response") |>
-#'   pairs(reverse = TRUE)
+#' emm <- emmeans(mod, ~ Stim | Sex * Diet * Satiety, type = "response")
+#' pw  <- pairs(emm, reverse = TRUE)
 #'
 #' ggplot(df, aes(x = interaction(Diet, Satiety), y = Breakpoint, fill = Stim)) +
 #'   geom_bar(
@@ -53,6 +55,7 @@
 #'   ) +
 #'   geom_point(position = position_jitterdodge(dodge.width = 0.8)) +
 #'   facet_wrap(~ Sex) +
+#'   bb_add_errorbar(emm) +
 #'   bb_add_pairwise(pw, hide.ns = TRUE)
 #' }
 bb_add_pairwise <- function(
@@ -167,6 +170,11 @@ ggplot_add.bb_pairwise_layer <- function(object, plot, ...) {
 
   x_vals <- rlang::eval_tidy(mapping$x, data)
   y_vals <- rlang::eval_tidy(mapping$y, data)
+  # Prefer CI upper bounds when present (e.g. bb_emm_df) so brackets
+  # sit above error bars, not the point estimates.
+  if (all(c("ymin", "ymax") %in% names(data)) && is.numeric(data$ymax)) {
+    y_vals <- pmax(as.numeric(y_vals), as.numeric(data$ymax), na.rm = TRUE)
+  }
   group_vals <- .bb_eval_group(object$group, mapping, data)
 
   x_levels <- .bb_discrete_levels(x_vals)

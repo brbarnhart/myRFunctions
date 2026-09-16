@@ -1,12 +1,12 @@
 #' Create a pairwise comparison plot from emmeans
 #'
 #' High-level convenience wrapper around [bb_emm_df()] and
-#' [bb_pairwise_labels()]. Builds a ggplot with points, T-capped 95% CI
+#' [bb_add_pairwise()]. Builds a ggplot with points, T-capped 95% CI
 #' error bars, optional connecting lines, faceting by by-variables,
 #' significance brackets, and a single effect-size annotation per panel.
 #'
-#' For custom layouts, call the helpers yourself and layer geoms manually,
-#' or add pairwise brackets to an existing ggplot with [bb_add_pairwise()].
+#' For custom layouts, call the helpers yourself and add intervals /
+#' brackets with [bb_add_errorbar()] and [bb_add_pairwise()].
 #'
 #' @param emm An `emmGrid` from [emmeans::emmeans()].
 #' @param x Bare name or string of the x-axis factor. Default: the sole
@@ -22,10 +22,10 @@
 #' @param model Optional fitted model forwarded for effect-size calculation.
 #' @param connect If `TRUE`, draw lines connecting points within each panel
 #'   along `x` (grouped by by-variables).
-#' @param hide.ns Passed to [bb_pairwise_labels()].
+#' @param hide.ns Passed to [bb_add_pairwise()] and [bb_pairwise_labels()].
 #' @param y.adjust Vertical nudge for significance brackets.
 #' @param step Stacking step for multiple brackets within a panel (fraction
-#'   of y-range). See [bb_pairwise_labels()].
+#'   of y-range). See [bb_add_pairwise()].
 #' @param annotate_effect If `TRUE`, draw one effect-size label per panel
 #'   (first contrast in that panel). When `y_expand` is `NULL`, this also
 #'   uses extra top padding so the annotation is not cramped against the
@@ -45,6 +45,11 @@
 #' @param linewidth Line width for error bars and connecting lines.
 #' @param errorbar_width Horizontal width of the T-caps on
 #'   [ggplot2::geom_errorbar()].
+#' @param interval `"ci"` (default) uses emmeans confidence limits (the
+#'   backtransformed limits when the grid was created with
+#'   `type = "response"`). `"sem"` uses the estimate ± `sem_mult` times
+#'   the emmeans SE. See [bb_add_errorbar()].
+#' @param sem_mult Multiplier for `interval = "sem"`. Default `1`.
 #' @param show_zero_line If `TRUE`, draw a horizontal line at y = 0.
 #' @param color Color for points / lines / error bars.
 #' @param ... Additional arguments reserved for future use (currently unused).
@@ -65,17 +70,12 @@
 #' bbmake_pairwise_plot(emm, y_expand = c(0.02, 0.4))
 #'
 #' # Deeper control with helpers
-#' df  <- bb_emm_df(emm)
-#' sig <- bb_pairwise_labels(pairs(emm), emm = emm)
-#' ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
-#'   geom_errorbar(width = 0.2) +
+#' df <- bb_emm_df(emm)
+#' ggplot(df, aes(x = Stim, y = y, fill = Diet)) +
 #'   geom_point() +
-#'   facet_grid(Diet ~ Sex) +
-#'   ggpubr::stat_pvalue_manual(
-#'     sig, label = "p.signif",
-#'     xmin = "group1", xmax = "group2",
-#'     y.position = "y.position"
-#'   )
+#'   facet_wrap(~ Sex) +
+#'   bb_add_errorbar(emm) +
+#'   bb_add_pairwise(pairs(emm))
 #' }
 bbmake_pairwise_plot <- function(
     emm,
@@ -95,6 +95,8 @@ bbmake_pairwise_plot <- function(
     point_size = 2,
     linewidth = 0.6,
     errorbar_width = 0.15,
+    interval = c("ci", "sem"),
+    sem_mult = 1,
     show_zero_line = TRUE,
     color = "black",
     ...
@@ -103,7 +105,8 @@ bbmake_pairwise_plot <- function(
     stop("`emm` must be an emmGrid from emmeans().", call. = FALSE)
   }
 
-  emm_df   <- bb_emm_df(emm)
+  interval <- match.arg(interval)
+  emm_df   <- .bb_apply_interval(bb_emm_df(emm), interval, sem_mult)
   pri_vars <- attr(emm_df, "pri.vars") %||% character(0)
   by_vars  <- attr(emm_df, "by.vars")  %||% character(0)
 
@@ -120,22 +123,12 @@ bbmake_pairwise_plot <- function(
     emm_df$.line_group <- 1L
   }
 
-  # ── Resolve pairwise labels ─────────────────────────────────────────────
+  # ── Resolve pairwise contrasts ──────────────────────────────────────────
   if (is.null(pw) && is.null(pw_table)) {
     # pairs() is an S3 method registered by emmeans, not an exported object
     pw <- emmeans::contrast(emm, method = "pairwise")
   }
-
-  sig <- bb_pairwise_labels(
-    pw       = pw,
-    emm      = emm_df,
-    pw_table = pw_table,
-    model    = model,
-    y.adjust = y.adjust,
-    step     = step,
-    hide.ns  = hide.ns
-  )
-  sig_by <- attr(sig, "by.vars") %||% character(0)
+  pw_for_add <- if (!is.null(pw_table)) pw_table else pw
 
   # ── Base plot ───────────────────────────────────────────────────────────
   p <- ggplot2::ggplot(emm_df) +
@@ -185,31 +178,39 @@ bbmake_pairwise_plot <- function(
   p <- .bb_add_facets(p, facets = facets, by_vars = by_vars)
 
   # ── Significance brackets ───────────────────────────────────────────────
-  if (nrow(sig) > 0L && !all(is.na(sig$y.position))) {
-    p <- p +
-      ggpubr::stat_pvalue_manual(
-        data       = sig,
-        label      = "p.signif",
-        xmin       = "group1",
-        xmax       = "group2",
-        y.position = "y.position",
-        hide.ns    = FALSE,
-        tip.length = 0.01
-      )
-  }
+  p <- p +
+    bb_add_pairwise(
+      pw_for_add,
+      model    = model,
+      hide.ns  = hide.ns,
+      y.adjust = y.adjust,
+      step     = step
+    )
 
   # ── Effect annotation (one per panel) ───────────────────────────────────
-  if (isTRUE(annotate_effect) && nrow(sig) > 0L) {
-    ann <- .bb_effect_annotation_df(sig, sig_by)
-    if (nrow(ann) > 0L && any(nzchar(ann$effect_annotation))) {
-      p <- p +
-        ggplot2::geom_text(
-          data = ann,
-          ggplot2::aes(label = .data$effect_annotation),
-          x = Inf, y = Inf,
-          hjust = hjust, vjust = vjust,
-          inherit.aes = FALSE
-        )
+  if (isTRUE(annotate_effect)) {
+    sig <- bb_pairwise_labels(
+      pw       = pw,
+      emm      = emm_df,
+      pw_table = pw_table,
+      model    = model,
+      y.adjust = y.adjust,
+      step     = step,
+      hide.ns  = hide.ns
+    )
+    sig_by <- attr(sig, "by.vars") %||% character(0)
+    if (nrow(sig) > 0L) {
+      ann <- .bb_effect_annotation_df(sig, sig_by)
+      if (nrow(ann) > 0L && any(nzchar(ann$effect_annotation))) {
+        p <- p +
+          ggplot2::geom_text(
+            data = ann,
+            ggplot2::aes(label = .data$effect_annotation),
+            x = Inf, y = Inf,
+            hjust = hjust, vjust = vjust,
+            inherit.aes = FALSE
+          )
+      }
     }
   }
 
