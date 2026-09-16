@@ -5,7 +5,8 @@
 #' error bars, optional connecting lines, faceting by by-variables,
 #' significance brackets, and a single effect-size annotation per panel.
 #'
-#' For custom layouts, call the helpers yourself and layer geoms manually.
+#' For custom layouts, call the helpers yourself and layer geoms manually,
+#' or add pairwise brackets to an existing ggplot with [bb_add_pairwise()].
 #'
 #' @param emm An `emmGrid` from [emmeans::emmeans()].
 #' @param x Bare name or string of the x-axis factor. Default: the sole

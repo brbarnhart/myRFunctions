@@ -62,7 +62,7 @@ uses extra top padding so the annotation is not cramped against the
 panel edge.}
 
 \item{y_expand}{Y-axis range expansion passed to
-\code{\link[ggplot2:scale_continuous]{ggplot2::scale_y_continuous()}}. \code{NULL} (default) uses
+\code{\link[ggplot2:scale_y_continuous]{ggplot2::scale_y_continuous()}}. \code{NULL} (default) uses
 \code{expansion(mult = c(0.02, 0.28))} when \code{annotate_effect} is \code{TRUE}
 and \code{expansion(mult = c(0.02, 0.18))} otherwise. A numeric of length
 1 or 2 is treated as multiplicative padding
@@ -79,7 +79,7 @@ follows the plot theme (ggplot2 4.0+: \code{theme_*(base_size)} or
 \item{linewidth}{Line width for error bars and connecting lines.}
 
 \item{errorbar_width}{Horizontal width of the T-caps on
-\code{\link[ggplot2:geom_linerange]{ggplot2::geom_errorbar()}}.}
+\code{\link[ggplot2:geom_errorbar]{ggplot2::geom_errorbar()}}.}
 
 \item{show_zero_line}{If \code{TRUE}, draw a horizontal line at y = 0.}
 
@@ -97,7 +97,8 @@ error bars, optional connecting lines, faceting by by-variables,
 significance brackets, and a single effect-size annotation per panel.
 }
 \details{
-For custom layouts, call the helpers yourself and layer geoms manually.
+For custom layouts, call the helpers yourself and layer geoms manually,
+or add pairwise brackets to an existing ggplot with \code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.
 }
 \examples{
 \dontrun{

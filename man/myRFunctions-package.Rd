@@ -11,5 +11,10 @@ What the package does (one paragraph).
 \author{
 \strong{Maintainer}: First Last \email{first.last@example.com}
 
+Authors:
+\itemize{
+  \item First Last \email{first.last@example.com}
+}
+
 }
 \keyword{internal}

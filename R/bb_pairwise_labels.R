@@ -25,6 +25,8 @@
 #' @return A tibble with columns `group1`, `group2`, `p.value`, `p.signif`,
 #'   `y.position`, `effect_annotation`, plus by-variables when present.
 #'   Attribute `by.vars` records faceting columns.
+#' @seealso [bb_add_pairwise()] to add these comparisons to an existing ggplot
+#'   (including dodged bar plots).
 #' @export
 #' @examples
 #' \dontrun{

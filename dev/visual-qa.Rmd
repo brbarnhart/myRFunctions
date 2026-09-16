@@ -1,0 +1,394 @@
+---
+title: "Visual QA — myRFunctions plots"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+    theme: flatly
+    fig_width: 8
+    fig_height: 5
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  dpi = 120
+)
+
+# Knit from `dev/` (RStudio Knit) or from the package root:
+# rmarkdown::render("dev/visual-qa.Rmd")
+pkg_root <- if (file.exists("DESCRIPTION")) {
+  normalizePath(".")
+} else if (file.exists(file.path("..", "DESCRIPTION"))) {
+  normalizePath("..")
+} else {
+  stop(
+    "Could not find the package root. Knit this file from `dev/` ",
+    "or render it from the package root.",
+    call. = FALSE
+  )
+}
+
+if (!requireNamespace("devtools", quietly = TRUE)) {
+  stop("Install devtools, then knit again: install.packages(\"devtools\")", call. = FALSE)
+}
+
+devtools::load_all(pkg_root, quiet = TRUE)
+
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(ggpubr)
+library(emmeans)
+library(lme4)
+library(lmerTest)
+```
+
+Knit this file locally and look at the figures before pushing plot-related changes. It is **not** run by testthat or `R CMD check`.
+
+It loads the **current working copy** via `devtools::load_all()`, so uncommitted edits are what you see.
+
+**How to run**
+
+- In RStudio: open `dev/visual-qa.Rmd` and click Knit.
+- From the package root: `rmarkdown::render("dev/visual-qa.Rmd")`
+
+The HTML is written next to this file and is gitignored.
+
+# Simulated data
+
+Two small datasets, both seeded so re-knits are comparable.
+
+```{r data}
+set.seed(42)
+
+stim_group <- expand.grid(
+  subj  = factor(1:12),
+  Stim  = factor(c("Low", "Med", "High"), levels = c("Low", "Med", "High")),
+  Group = factor(c("Control", "Treatment"))
+) |>
+  as_tibble() |>
+  mutate(
+    y = 10 +
+      3 * (Stim == "Med") +
+      6 * (Stim == "High") +
+      4 * (Group == "Treatment") +
+      2.5 * (Stim == "High" & Group == "Treatment") +
+      rnorm(n(), sd = 2.5)
+  )
+
+mod_sg <- suppressWarnings(lmer(y ~ Stim * Group + (1 | subj), data = stim_group))
+emm_sg <- emmeans(mod_sg, ~ Stim | Group)
+pw_sg  <- pairs(emm_sg, adjust = "tukey")
+
+set.seed(99)
+
+stim_diet_sex <- expand.grid(
+  subj = factor(1:10),
+  Stim = factor(c("Low", "Med", "High"), levels = c("Low", "Med", "High")),
+  Diet = factor(c("Chow", "HFD")),
+  Sex  = factor(c("F", "M"))
+) |>
+  as_tibble() |>
+  mutate(
+    y = 8 +
+      2.5 * (Stim == "Med") +
+      5 * (Stim == "High") +
+      3 * (Diet == "HFD") +
+      1.5 * (Sex == "M") +
+      2 * (Stim == "High" & Diet == "HFD") +
+      rnorm(n(), sd = 2)
+  )
+
+mod_sds <- suppressWarnings(
+  lmer(y ~ Stim * Diet * Sex + (1 | subj), data = stim_diet_sex)
+)
+emm_sds <- emmeans(mod_sds, ~ Stim | Diet * Sex)
+pw_sds  <- pairs(emm_sds, adjust = "tukey")
+```
+
+# `bbmake_pairwise_plot()`
+
+## Default (effect annotation on)
+
+Look for: T-capped CIs, connecting lines, one effect-size label per panel at the top right, significance brackets, a zero line, and extra top padding so the annotation is not cramped.
+
+```{r pairwise-default, fig.height=4.8}
+bbmake_pairwise_plot(emm_sg, pw = pw_sg, model = mod_sg) +
+  labs(
+    title = "Default: annotate_effect = TRUE",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+## Effect annotation off
+
+Look for: no top-right effect label, and **less** empty space above the brackets than the plot above.
+
+```{r pairwise-no-ann, fig.height=4.8}
+bbmake_pairwise_plot(
+  emm_sg, pw = pw_sg, model = mod_sg,
+  annotate_effect = FALSE
+) +
+  labs(
+    title = "annotate_effect = FALSE",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+## Custom `y_expand`
+
+Look for: a larger gap above the brackets than the default annotated plot.
+
+```{r pairwise-y-expand, fig.height=4.8}
+bbmake_pairwise_plot(
+  emm_sg, pw = pw_sg, model = mod_sg,
+  y_expand = c(0.02, 0.45)
+) +
+  labs(
+    title = "y_expand = c(0.02, 0.45)",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+## Annotation text size follows the theme
+
+Look for: the top-right effect label scaling with `base_size`, along with axis text. The first two use complete themes; the third only changes geom text via `theme(geom)`.
+
+```{r pairwise-theme-11, fig.height=4.8}
+p_ann <- bbmake_pairwise_plot(emm_sg, pw = pw_sg, model = mod_sg)
+
+p_ann +
+  theme_grey(base_size = 11) +
+  labs(
+    title = "theme_grey(base_size = 11)",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+```{r pairwise-theme-18, fig.height=4.8}
+p_ann +
+  theme_bw(base_size = 18) +
+  labs(
+    title = "theme_bw(base_size = 18)",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+```{r pairwise-theme-geom, fig.height=4.8}
+p_ann +
+  theme(geom = element_geom(fontsize = 14)) +
+  labs(
+    title = "theme(geom = element_geom(fontsize = 14))",
+    subtitle = "Axis text stays at the default; only geom text (the annotation) should grow",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+`theme(text = element_text(size = ...))` does **not** change `geom_text()` size. That is ggplot2's split between theme text and geom text.
+
+## Facet grid (two by-variables)
+
+Look for: one panel per Diet × Sex cell, annotation and brackets in each panel.
+
+```{r pairwise-facet-grid, fig.height=6.5, fig.width=9}
+bbmake_pairwise_plot(emm_sds, pw = pw_sds, model = mod_sds) +
+  labs(
+    title = "Auto facet_grid(Diet ~ Sex)",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+## Other layout switches
+
+```{r pairwise-no-connect, fig.height=4.5}
+bbmake_pairwise_plot(
+  emm_sg, pw = pw_sg, model = mod_sg,
+  connect = FALSE
+) +
+  labs(title = "connect = FALSE", x = "Stimulation", y = "Response")
+```
+
+```{r pairwise-no-facets, fig.height=4.5}
+bbmake_pairwise_plot(
+  emm_sg, pw = pw_sg, model = mod_sg,
+  facets = FALSE
+) +
+  labs(
+    title = "facets = FALSE (all groups overplotted)",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+```{r pairwise-no-zero, fig.height=4.5}
+bbmake_pairwise_plot(
+  emm_sg, pw = pw_sg, model = mod_sg,
+  show_zero_line = FALSE
+) +
+  labs(title = "show_zero_line = FALSE", x = "Stimulation", y = "Response")
+```
+
+```{r pairwise-hide-ns, fig.height=4.5}
+bbmake_pairwise_plot(
+  emm_sg, pw = pw_sg, model = mod_sg,
+  hide.ns = TRUE
+) +
+  labs(title = "hide.ns = TRUE", x = "Stimulation", y = "Response")
+```
+
+# `bb_add_pairwise()`
+
+Add emmeans pairwise brackets to an existing ggplot. The motivating layout is a dodged bar plot: `Stim` is compared within each `Diet × Satiety` x-position, faceted by `Sex`.
+
+```{r add-pairwise-data}
+set.seed(42)
+
+pr_motivation <- expand.grid(
+  subj    = factor(1:8),
+  Stim    = factor(c("Cont", "Opto")),
+  Sex     = factor(c("Male", "Female")),
+  Diet    = factor(c("Chow", "HFHS")),
+  Satiety = factor(c("Fed", "Fasted"))
+) |>
+  as_tibble() |>
+  mutate(
+    Breakpoint = 8 +
+      6 * (Stim == "Opto" & Sex == "Female" & Diet == "Chow" & Satiety == "Fed") +
+      3 * (Stim == "Opto" & Sex == "Female" & Diet == "HFHS" & Satiety == "Fasted") +
+      rnorm(n(), sd = 1.2)
+  )
+
+mod_pr <- lm(Breakpoint ~ Stim * Sex * Diet * Satiety, data = pr_motivation)
+emm_pr <- emmeans(mod_pr, ~ Stim | Sex * Diet * Satiety)
+pw_pr  <- pairs(emm_pr, reverse = TRUE)
+
+col_width <- 0.8
+```
+
+## Dodged bars (fill comparisons)
+
+Look for: a small bracket spanning the Cont vs Opto bars at each `Diet.Satiety` tick, not across x-axis categories; separate Female / Male panels; brackets sitting above the jittered points.
+
+```{r add-pairwise-dodge, fig.height=5, fig.width=9}
+pr_motivation |>
+  ggplot(aes(
+    x = interaction(Diet, Satiety),
+    y = Breakpoint,
+    fill = Stim
+  )) +
+  geom_bar(
+    stat = "summary",
+    fun = mean,
+    width = col_width,
+    position = position_dodge(width = col_width)
+  ) +
+  geom_point(
+    position = position_jitterdodge(
+      dodge.width = col_width,
+      jitter.width = col_width / 3
+    )
+  ) +
+  facet_wrap(~ Sex) +
+  bb_add_pairwise(pw_pr) +
+  labs(
+    title = "bb_add_pairwise() on dodged bars",
+    subtitle = "pairs(emmeans(~ Stim | Sex * Diet * Satiety)); hide.ns = FALSE",
+    x = "Diet × Satiety",
+    y = "Breakpoint"
+  )
+```
+
+## Significant contrasts only
+
+Look for: the same layout, but only the Female / Chow / Fed (and possibly Female / HFHS / Fasted) brackets remain.
+
+```{r add-pairwise-hide-ns, fig.height=5, fig.width=9}
+pr_motivation |>
+  ggplot(aes(
+    x = interaction(Diet, Satiety),
+    y = Breakpoint,
+    fill = Stim
+  )) +
+  geom_bar(
+    stat = "summary",
+    fun = mean,
+    width = col_width,
+    position = position_dodge(width = col_width)
+  ) +
+  geom_point(
+    position = position_jitterdodge(
+      dodge.width = col_width,
+      jitter.width = col_width / 3
+    )
+  ) +
+  facet_wrap(~ Sex) +
+  bb_add_pairwise(pw_pr, hide.ns = TRUE) +
+  labs(
+    title = "bb_add_pairwise(hide.ns = TRUE)",
+    x = "Diet × Satiety",
+    y = "Breakpoint"
+  )
+```
+
+# `bb_ggbarplot()`
+
+```{r bar-data}
+set.seed(1)
+bar_dat <- expand.grid(
+  group     = factor(c("A", "B")),
+  condition = factor(c("Cont", "Stim")),
+  rep       = 1:8
+) |>
+  transform(
+    score = 2 +
+      as.numeric(condition) +
+      as.numeric(group) +
+      rnorm(length(group), sd = 0.5)
+  )
+```
+
+## Default
+
+Look for: mean + CI error bars, dodged bars, jittered points aligned to bars, a y = 0 line, `theme_bw()` with large text, Set1 fills.
+
+```{r bar-default, fig.height=4.5}
+bb_ggbarplot(bar_dat, x = "group", y = "score", fill = "condition") +
+  labs(title = "Default bb_ggbarplot()", y = "Score")
+```
+
+## Points and zero line off
+
+```{r bar-bare, fig.height=4.5}
+bb_ggbarplot(
+  bar_dat,
+  x = "group",
+  y = "score",
+  fill = "condition",
+  add_points = FALSE,
+  add_hline = FALSE
+) +
+  labs(title = "add_points = FALSE, add_hline = FALSE", y = "Score")
+```
+
+# Tables (quick glance)
+
+Not plots, but easy to scan here so a broken table does not sneak through with a plot change.
+
+```{r tables}
+bbmake_model_table(mod_sg)
+bbmake_pairwise_table(pw_sg, model = mod_sg)
+```

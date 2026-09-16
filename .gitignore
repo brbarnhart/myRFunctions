@@ -1,1 +1,5 @@
 .Rproj.user
+
+# Visual QA knit output (local only)
+dev/*.html
+dev/*_files/

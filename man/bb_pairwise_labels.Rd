@@ -66,3 +66,7 @@ ggplot(df, aes(x = Stim, y = y, ymin = ymin, ymax = ymax)) +
   )
 }
 }
+\seealso{
+\code{\link[=bb_add_pairwise]{bb_add_pairwise()}} to add these comparisons to an existing ggplot
+(including dodged bar plots).
+}
