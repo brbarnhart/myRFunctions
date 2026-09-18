@@ -1,4 +1,4 @@
-# tests/testthat/test-bbmake_sensitivity_table.R
+# tests/testthat/test-bbmake_pairwise_sensitivity_table.R
 
 library(testthat)
 library(dplyr)
@@ -6,10 +6,15 @@ library(tibble)
 library(emmeans)
 
 # ── Oracle: the original hand-rolled pipeline ────────────────────────────────
-get_pairs_manual <- function(model, model_name) {
+get_pairs_manual <- function(
+  model,
+  model_name,
+  adjust = "tukey",
+  cross.adjust = "none"
+) {
   emmeans(model, ~ Stim | Diet * Sex, type = "response") |>
-    pairs(by = c("Sex", "Diet"), reverse = TRUE) |>
-    as.data.frame() |>
+    pairs(by = c("Sex", "Diet"), reverse = TRUE, adjust = adjust) |>
+    as.data.frame(adjust = adjust, cross.adjust = cross.adjust) |>
     mutate(Model = model_name) |>
     select(Sex, Diet, contrast, ratio, SE, p.value, Model)
 }
@@ -50,7 +55,7 @@ test_that("named list of glm models matches the imap_dfr pairs pipeline", {
     mutate(contrast = stringr::str_trim(contrast)) |>
     arrange(Sex, Diet, contrast, Model)
 
-  tab <- bbmake_sensitivity_table(
+  tab <- bbmake_pairwise_sensitivity_table(
     mods,
     ~ Stim | Diet * Sex,
     by = c("Sex", "Diet")
@@ -69,7 +74,7 @@ test_that("named list of glm models matches the imap_dfr pairs pipeline", {
 test_that("Model column preserves list names and order", {
   s <- setup_sensitivity_models()
   mods <- list(`Outliers removed` = s$Reduced, Full = s$Full)
-  tab <- bbmake_sensitivity_table(
+  tab <- bbmake_pairwise_sensitivity_table(
     mods,
     ~ Stim | Diet * Sex,
     by = c("Sex", "Diet")
@@ -82,7 +87,7 @@ test_that("Model column preserves list names and order", {
 test_that("each model contributes the same contrasts", {
   s <- setup_sensitivity_models()
   mods <- list(Full = s$Full, Reduced = s$Reduced)
-  tab <- bbmake_sensitivity_table(
+  tab <- bbmake_pairwise_sensitivity_table(
     mods,
     ~ Stim | Diet * Sex,
     by = c("Sex", "Diet")
@@ -101,7 +106,7 @@ test_that("by defaults to emmeans by-variables from specs", {
   s <- setup_sensitivity_models()
   mods <- list(Full = s$Full, Reduced = s$Reduced)
 
-  tab <- bbmake_sensitivity_table(mods, ~ Stim | Diet * Sex)
+  tab <- bbmake_pairwise_sensitivity_table(mods, ~ Stim | Diet * Sex)
 
   expect_true(all(c("Diet", "Sex") %in% names(tab)))
   expect_true("Contrast" %in% names(tab))
@@ -118,7 +123,7 @@ test_that("two-way specs work without a Diet by-variable", {
     )
   )
 
-  tab <- bbmake_sensitivity_table(mods, ~ Stim | Sex, by = "Sex")
+  tab <- bbmake_pairwise_sensitivity_table(mods, ~ Stim | Sex, by = "Sex")
 
   expect_equal(names(tab), c("Sex", "Contrast", "Model", "IRR", "p"))
   expect_false("Diet" %in% names(tab))
@@ -138,7 +143,7 @@ test_that("gaussian models keep estimate instead of IRR", {
     Reduced = glm(yg ~ Sex * Stim * Diet, data = dat[dat$id != "1", ])
   )
 
-  tab <- bbmake_sensitivity_table(
+  tab <- bbmake_pairwise_sensitivity_table(
     mods,
     ~ Stim | Diet * Sex,
     by = c("Sex", "Diet")
@@ -156,8 +161,10 @@ test_that("gaussian models keep estimate instead of IRR", {
 test_that("digits rounds the effect column and p only", {
   s <- setup_sensitivity_models()
   mods <- list(Full = s$Full, Reduced = s$Reduced)
-  raw <- bbmake_sensitivity_table(mods, ~ Stim | Diet * Sex, by = c("Sex", "Diet"))
-  rnd <- bbmake_sensitivity_table(
+  raw <- bbmake_pairwise_sensitivity_table(
+    mods, ~ Stim | Diet * Sex, by = c("Sex", "Diet")
+  )
+  rnd <- bbmake_pairwise_sensitivity_table(
     mods, ~ Stim | Diet * Sex,
     by = c("Sex", "Diet"),
     digits = 3
@@ -170,27 +177,118 @@ test_that("digits rounds the effect column and p only", {
 
 test_that("invalid inputs error clearly", {
   s <- setup_sensitivity_models()
-  expect_error(bbmake_sensitivity_table(), "`models` is missing")
+  expect_error(bbmake_pairwise_sensitivity_table(), "`models` is missing")
   expect_error(
-    bbmake_sensitivity_table(s$Full, ~ Stim | Sex),
+    bbmake_pairwise_sensitivity_table(s$Full, ~ Stim | Sex),
     "named list of models"
   )
   expect_error(
-    bbmake_sensitivity_table(list(s$Full, s$Reduced), ~ Stim | Sex),
+    bbmake_pairwise_sensitivity_table(list(s$Full, s$Reduced), ~ Stim | Sex),
     "named list"
   )
   expect_error(
-    bbmake_sensitivity_table(list(Full = s$Full, s$Reduced), ~ Stim | Sex),
+    bbmake_pairwise_sensitivity_table(list(Full = s$Full, s$Reduced), ~ Stim | Sex),
     "named list"
   )
   expect_error(
-    bbmake_sensitivity_table(list(Full = s$Full)),
+    bbmake_pairwise_sensitivity_table(list(Full = s$Full)),
     "`specs` is missing"
   )
   expect_error(
-    bbmake_sensitivity_table(list(Full = s$Full), ~ Stim | Sex, digits = -1),
+    bbmake_pairwise_sensitivity_table(list(Full = s$Full), ~ Stim | Sex, digits = -1),
     "`digits`"
   )
+})
+
+# ==================================================================
+# adjust (multiple comparisons)
+# ==================================================================
+
+test_that("adjust is forwarded to contrast/pairs", {
+  set.seed(1)
+  dat <- expand.grid(
+    Stim = factor(c("A", "B", "C")),
+    id = 1:20
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  mods <- list(
+    Full = glm(y ~ Stim, data = dat, family = poisson),
+    Reduced = glm(y ~ Stim, data = dat[-1, ], family = poisson)
+  )
+
+  none <- bbmake_pairwise_sensitivity_table(mods, ~ Stim, adjust = "none")
+  bonf <- bbmake_pairwise_sensitivity_table(mods, ~ Stim, adjust = "bonferroni")
+  tukey <- bbmake_pairwise_sensitivity_table(mods, ~ Stim, adjust = "tukey")
+  default <- bbmake_pairwise_sensitivity_table(mods, ~ Stim)
+
+  expect_equal(default$p, tukey$p)
+  expect_true(all(bonf$p >= none$p - 1e-12))
+  expect_true(any(bonf$p > none$p + 1e-12))
+
+  emm <- emmeans(mods$Full, ~ Stim, type = "response")
+  expected <- as.data.frame(
+    contrast(emm, method = "revpairwise", adjust = "bonferroni")
+  )
+  got <- bonf[as.character(bonf$Model) == "Full", ]
+  expect_equal(got$p, expected$p.value)
+  expect_equal(got$IRR, expected$ratio)
+})
+
+test_that("adjust matches the pairs() oracle on the factorial glm", {
+  s <- setup_sensitivity_models()
+  mods <- list(Full = s$Full, Reduced = s$Reduced)
+
+  expected <- dplyr::bind_rows(
+    get_pairs_manual(s$Full, "Full", adjust = "bonferroni"),
+    get_pairs_manual(s$Reduced, "Reduced", adjust = "bonferroni")
+  ) |>
+    mutate(contrast = stringr::str_trim(contrast)) |>
+    arrange(Sex, Diet, contrast, Model)
+
+  tab <- bbmake_pairwise_sensitivity_table(
+    mods,
+    ~ Stim | Diet * Sex,
+    by = c("Sex", "Diet"),
+    adjust = "bonferroni"
+  )
+
+  expect_equal(tab$p, expected$p.value)
+})
+
+test_that("cross.adjust is forwarded across by-groups", {
+  s <- setup_sensitivity_models()
+  mods <- list(Full = s$Full, Reduced = s$Reduced)
+
+  none <- bbmake_pairwise_sensitivity_table(
+    mods, ~ Stim | Diet * Sex,
+    by = c("Sex", "Diet"),
+    adjust = "none",
+    cross.adjust = "none"
+  )
+  cross <- bbmake_pairwise_sensitivity_table(
+    mods, ~ Stim | Diet * Sex,
+    by = c("Sex", "Diet"),
+    adjust = "none",
+    cross.adjust = "bonferroni"
+  )
+  default <- bbmake_pairwise_sensitivity_table(
+    mods, ~ Stim | Diet * Sex,
+    by = c("Sex", "Diet")
+  )
+
+  expect_equal(default$p, none$p)
+  expect_true(all(cross$p >= none$p - 1e-12))
+  expect_true(any(cross$p > none$p + 1e-12))
+
+  expected <- dplyr::bind_rows(
+    get_pairs_manual(s$Full, "Full", adjust = "none", cross.adjust = "bonferroni"),
+    get_pairs_manual(s$Reduced, "Reduced", adjust = "none", cross.adjust = "bonferroni")
+  ) |>
+    mutate(contrast = stringr::str_trim(contrast)) |>
+    arrange(Sex, Diet, contrast, Model)
+
+  expect_equal(cross$p, expected$p.value)
+  expect_equal(cross$IRR, expected$ratio)
 })
 
 # ==================================================================
@@ -215,7 +313,7 @@ test_that("glmmTMB nbinom2 models return IRR contrasts", {
     ))
   )
 
-  tab <- suppressWarnings(bbmake_sensitivity_table(
+  tab <- suppressWarnings(bbmake_pairwise_sensitivity_table(
     mods,
     ~ Stim | Diet * Sex,
     by = c("Sex", "Diet")

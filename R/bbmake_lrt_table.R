@@ -29,7 +29,8 @@
 #' @return A tibble with columns `Term`, `Df`, `LRT`, and `p` (highest-order
 #'   terms first). Attribute `note` records that the tests are Type II LRTs.
 #'
-#' @seealso [bbmake_model_table()] for Wald / *F* tables,
+#' @seealso [bbmake_lrt_sensitivity_table()] to stack Type II LRTs across
+#'   models, [bbmake_model_table()] for Wald / *F* tables,
 #'   [stats::drop1()]
 #' @export
 #' @examples

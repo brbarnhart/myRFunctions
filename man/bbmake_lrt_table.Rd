@@ -62,6 +62,7 @@ rempsyc::nice_table(lrt)
 }
 }
 \seealso{
-\code{\link[=bbmake_model_table]{bbmake_model_table()}} for Wald / \emph{F} tables,
+\code{\link[=bbmake_lrt_sensitivity_table]{bbmake_lrt_sensitivity_table()}} to stack Type II LRTs across
+models, \code{\link[=bbmake_model_table]{bbmake_model_table()}} for Wald / \emph{F} tables,
 \code{\link[stats:drop1]{stats::drop1()}}
 }

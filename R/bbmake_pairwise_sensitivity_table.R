@@ -5,6 +5,10 @@
 #' the `Model` column, so you can compare a full-data fit against outlier
 #' removals (or any other refits you have already diagnosed).
 #'
+#' This is the **pairwise** counterpart to [bbmake_lrt_sensitivity_table()].
+#' Pairwise tables ask whether planned cell comparisons change after a
+#' refit; LRT tables ask whether Type II tests of model terms change.
+#'
 #' Fit and check diagnostics yourself, then pass the models in:
 #'
 #' ```
@@ -12,7 +16,9 @@
 #'   Full = mod_full,
 #'   `Outliers removed` = mod_no_out
 #' )
-#' bbmake_sensitivity_table(mods, ~ Stim | Diet * Sex, by = c("Sex", "Diet"))
+#' bbmake_pairwise_sensitivity_table(
+#'   mods, ~ Stim | Diet * Sex, by = c("Sex", "Diet")
+#' )
 #' ```
 #'
 #' On the response scale, pairwise ratios are labelled `IRR` (counts,
@@ -31,6 +37,18 @@
 #'   so later factor levels are in the numerator (the usual IRR direction).
 #' @param type Passed to [emmeans::emmeans()]. Default `"response"` so count
 #'   models return IRRs rather than log-scale differences.
+#' @param adjust Multiplicity adjustment passed to [emmeans::contrast()]
+#'   (the same argument as `pairs(..., adjust = )`). Default `"tukey"`,
+#'   matching emmeans pairwise. Common values: `"tukey"`, `"bonferroni"`,
+#'   `"holm"`, `"fdr"`, `"none"`. Adjustment is **within** each `by` group;
+#'   with one contrast per cell (two-level `Stim`) Tukey and none coincide.
+#' @param cross.adjust Additional p-value adjustment **across** `by` groups,
+#'   passed to [emmeans::summary.emmGrid()]. Default `"none"`. Use this when
+#'   each cell has one planned contrast (e.g. Stim within Sex × Diet) and
+#'   you want those cells treated as one family:
+#'   `adjust = "none", cross.adjust = "bonferroni"`. Valid methods are
+#'   [stats::p.adjust.methods] plus `"sidak"`. Ignored unless there is more
+#'   than one `by` group and the groups are the same size (emmeans rules).
 #' @param digits Optional decimal places for the effect column and `p`.
 #'   `NULL` (the default) leaves full precision so [rempsyc::nice_table()]
 #'   can format the paper table.
@@ -40,8 +58,9 @@
 #'   and `p`. Rows are ordered by grouping variables, contrast, then model
 #'   list order.
 #'
-#' @seealso [bbmake_pairwise_table()] for a single-model pairwise table,
-#'   [bbmake_lrt_table()] for Type II LRTs
+#' @seealso [bbmake_lrt_sensitivity_table()] for Type II LRTs across the
+#'   same models, [bbmake_pairwise_table()] for a single-model pairwise
+#'   table, [bbmake_lrt_table()] for a single-model LRT
 #' @export
 #' @examples
 #' set.seed(1)
@@ -60,13 +79,23 @@
 #'     family = poisson
 #'   )
 #' )
-#' bbmake_sensitivity_table(mods, ~ Stim | Diet * Sex, by = c("Sex", "Diet"))
-bbmake_sensitivity_table <- function(
+#' bbmake_pairwise_sensitivity_table(
+#'   mods, ~ Stim | Diet * Sex, by = c("Sex", "Diet")
+#' )
+#' bbmake_pairwise_sensitivity_table(
+#'   mods, ~ Stim | Diet * Sex,
+#'   by = c("Sex", "Diet"),
+#'   adjust = "none",
+#'   cross.adjust = "bonferroni"
+#' )
+bbmake_pairwise_sensitivity_table <- function(
   models,
   specs,
   by = NULL,
   reverse = TRUE,
   type = "response",
+  adjust = "tukey",
+  cross.adjust = "none",
   digits = NULL
 ) {
   models <- .bb_as_named_model_list(models)
@@ -92,7 +121,9 @@ bbmake_sensitivity_table <- function(
       specs = specs,
       by = by,
       reverse = reverse,
-      type = type
+      type = type,
+      adjust = adjust,
+      cross.adjust = cross.adjust
     )
     if (i == 1L && (is.null(by_vars) || length(by_vars) == 0L)) {
       by_vars <- piece$by_vars
@@ -101,7 +132,7 @@ bbmake_sensitivity_table <- function(
   }
 
   out <- dplyr::bind_rows(pieces)
-  out <- .bb_tidy_sensitivity(out, by_vars = by_vars, model_levels = nms)
+  out <- .bb_tidy_pairwise_sensitivity(out, by_vars = by_vars, model_levels = nms)
 
   if (!is.null(digits) && nrow(out) > 0L) {
     num_cols <- intersect(
@@ -153,7 +184,16 @@ bbmake_sensitivity_table <- function(
 }
 
 #' @keywords internal
-.bb_pairs_for_model <- function(model, model_name, specs, by, reverse, type) {
+.bb_pairs_for_model <- function(
+  model,
+  model_name,
+  specs,
+  by,
+  reverse,
+  type,
+  adjust,
+  cross.adjust
+) {
   emm <- tryCatch(
     emmeans::emmeans(model, specs = specs, type = type),
     error = function(e) {
@@ -173,20 +213,20 @@ bbmake_sensitivity_table <- function(
   method <- if (isTRUE(reverse)) "revpairwise" else "pairwise"
   pw <- tryCatch(
     if (is.null(by_use) || length(by_use) == 0L) {
-      emmeans::contrast(emm, method = method)
+      emmeans::contrast(emm, method = method, adjust = adjust)
     } else {
-      emmeans::contrast(emm, method = method, by = by_use)
+      emmeans::contrast(emm, method = method, by = by_use, adjust = adjust)
     },
     error = function(e) {
       stop(
-        "pairs() failed for model '", model_name, "': ",
+        "contrast() failed for model '", model_name, "': ",
         conditionMessage(e),
         call. = FALSE
       )
     }
   )
 
-  df <- as.data.frame(pw)
+  df <- as.data.frame(pw, adjust = adjust, cross.adjust = cross.adjust)
   df$Model <- model_name
   list(
     data = df,
@@ -195,7 +235,7 @@ bbmake_sensitivity_table <- function(
 }
 
 #' @keywords internal
-.bb_tidy_sensitivity <- function(out, by_vars, model_levels) {
+.bb_tidy_pairwise_sensitivity <- function(out, by_vars, model_levels) {
   if ("ratio" %in% names(out)) {
     out <- dplyr::rename(out, IRR = "ratio")
   } else if ("odds.ratio" %in% names(out)) {
@@ -204,7 +244,7 @@ bbmake_sensitivity_table <- function(
 
   if (!"contrast" %in% names(out) || !"p.value" %in% names(out)) {
     stop(
-      "pairs() did not return contrast and p.value. Columns were: ",
+      "contrast() did not return contrast and p.value. Columns were: ",
       paste(names(out), collapse = ", "),
       call. = FALSE
     )
@@ -213,7 +253,7 @@ bbmake_sensitivity_table <- function(
   effect_cols <- intersect(c("IRR", "Odds Ratio", "estimate"), names(out))
   if (length(effect_cols) == 0L) {
     stop(
-      "pairs() did not return ratio, odds.ratio, or estimate. Columns were: ",
+      "contrast() did not return ratio, odds.ratio, or estimate. Columns were: ",
       paste(names(out), collapse = ", "),
       call. = FALSE
     )

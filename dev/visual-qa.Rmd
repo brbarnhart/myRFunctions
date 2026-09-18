@@ -488,3 +488,64 @@ Not plots, but easy to scan here so a broken table does not sneak through with a
 bbmake_model_table(mod_sg)
 bbmake_pairwise_table(pw_sg, model = mod_sg)
 ```
+
+## Sensitivity tables
+
+Full-data vs outlier-removed refits of the same Poisson glm. Two-level `Stim` so each Sex × Diet cell has **one** contrast: `adjust` alone does nothing, `cross.adjust` is what treats the four cells as one family.
+
+Look for: a `Model` column (`Full` then `Outliers removed`); the same contrasts stacked; IRRs that can shift after the refit; p-values that stay the same under default Tukey-within-cell but get larger with `cross.adjust = "bonferroni"`.
+
+```{r sensitivity-data}
+set.seed(1)
+sens_dat <- expand.grid(
+  Sex  = factor(c("F", "M")),
+  Stim = factor(c("Cont", "Opto")),
+  Diet = factor(c("Chow", "HFD")),
+  id   = factor(1:8)
+) |>
+  as_tibble() |>
+  mutate(y = rpois(n(), lambda = ifelse(Stim == "Opto", 8, 4)))
+
+mods_sens <- list(
+  Full = glm(y ~ Sex * Stim * Diet, data = sens_dat, family = poisson),
+  `Outliers removed` = glm(
+    y ~ Sex * Stim * Diet,
+    data = filter(sens_dat, id != "1"),
+    family = poisson
+  )
+)
+```
+
+### Pairwise, default (`adjust = "tukey"`, `cross.adjust = "none"`)
+
+With one contrast per cell these p-values match the unadjusted tests.
+
+```{r sensitivity-pairwise-default}
+bbmake_pairwise_sensitivity_table(
+  mods_sens,
+  ~ Stim | Diet * Sex,
+  by = c("Sex", "Diet")
+)
+```
+
+### Pairwise, Bonferroni across cells
+
+Look for: the same IRRs as above, but larger `p` (four cells, Bonferroni).
+
+```{r sensitivity-pairwise-cross}
+bbmake_pairwise_sensitivity_table(
+  mods_sens,
+  ~ Stim | Diet * Sex,
+  by = c("Sex", "Diet"),
+  adjust = "none",
+  cross.adjust = "bonferroni"
+)
+```
+
+### Type II LRTs across the same models
+
+Look for: `Term` then `Model`, so Full and Outliers-removed sit next to each other for each effect.
+
+```{r sensitivity-lrt}
+bbmake_lrt_sensitivity_table(mods_sens)
+```
