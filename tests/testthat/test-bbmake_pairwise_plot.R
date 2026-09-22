@@ -38,7 +38,7 @@ test_that("bbmake_pairwise_plot returns a ggplot with auto pairs + facets", {
   skip_if_not_installed("ggpubr")
 
   s <- setup_plot_data()
-  p <- bbmake_pairwise_plot(s$emm, model = s$mod)
+  p <- bbmake_pairwise_plot(s$emm)
 
   expect_s3_class(p, "ggplot")
   expect_true(inherits(p, "gg"))
@@ -49,6 +49,33 @@ test_that("bbmake_pairwise_plot returns a ggplot with auto pairs + facets", {
   # Facet by Group should be present
   expect_true(!is.null(p$facet))
   expect_false(inherits(p$facet, "FacetNull"))
+})
+
+test_that("bbmake_pairwise_plot cross.adjust is applied without a prebuilt pw", {
+  skip_if_not_installed("lmerTest")
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("ggpubr")
+
+  s <- setup_plot_data()
+  expect_no_error({
+    p <- bbmake_pairwise_plot(
+      s$emm,
+      adjust = "none",
+      cross.adjust = "holm"
+    )
+  })
+  expect_s3_class(p, "ggplot")
+
+  none <- bbmake_pairwise_table(
+    pairs(s$emm, reverse = TRUE, adjust = "none"),
+    cross.adjust = "none"
+  )
+  holm <- bbmake_pairwise_table(
+    pairs(s$emm, reverse = TRUE, adjust = "none"),
+    cross.adjust = "holm"
+  )
+  expect_true(all(holm$p.value >= none$p.value - 1e-12))
+  expect_true(any(holm$p.value > none$p.value + 1e-12))
 })
 
 test_that("bbmake_pairwise_plot accepts explicit pw and x as string", {

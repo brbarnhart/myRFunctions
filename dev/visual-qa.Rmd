@@ -250,6 +250,84 @@ bbmake_pairwise_plot(
   labs(title = "hide.ns = TRUE", x = "Stimulation", y = "Response")
 ```
 
+## Just `emm`
+
+Look for: the same layout as the default plot, without passing `pw` or `model`. Reverse Tukey pairs are built from `emm`.
+
+```{r pairwise-emm-only, fig.height=4.8}
+bbmake_pairwise_plot(emm_sg) +
+  labs(
+    title = "bbmake_pairwise_plot(emm)",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+## Holm of every pairwise test (`cross.adjust`)
+
+`cross.adjust` Holms (or Bonferroni, etc.) **all** pairwise tests as one family: every Stim comparison in every by-cell. That is the total-number-of-comparisons correction.
+
+The usual paper figure is two-level Stim (Cont vs Opto) within Sex × Diet: four tests, Tukey-within-cell does nothing, Holm of 4 raises p and can drop stars.
+
+Look for: unadjusted plot has `*` in F/Chow and M/HFD; Holm plot those become `ns`; F/HFD stays `***`. Mean differences stay the same.
+
+```{r pairwise-two-level-data}
+set.seed(5)
+stim2 <- expand.grid(
+  subj = factor(1:10),
+  Stim = factor(c("Cont", "Opto")),
+  Sex  = factor(c("F", "M")),
+  Diet = factor(c("Chow", "HFD"))
+) |>
+  as_tibble() |>
+  mutate(
+    y = 10 +
+      2.2 * (Stim == "Opto" & Sex == "F" & Diet == "Chow") +
+      3.5 * (Stim == "Opto" & Sex == "F" & Diet == "HFD") +
+      1.6 * (Stim == "Opto" & Sex == "M" & Diet == "Chow") +
+      0.4 * (Stim == "Opto" & Sex == "M" & Diet == "HFD") +
+      rnorm(n(), sd = 1.6)
+  )
+
+mod_stim2 <- lm(y ~ Stim * Sex * Diet, data = stim2)
+emm_stim2 <- emmeans(mod_stim2, ~ Stim | Sex * Diet)
+```
+
+```{r pairwise-two-level-none, fig.height=5.5, fig.width=8}
+bbmake_pairwise_plot(emm_stim2, adjust = "none") +
+  labs(
+    title = "Two-level Stim, unadjusted",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+```{r pairwise-two-level-holm, fig.height=5.5, fig.width=8}
+bbmake_pairwise_plot(
+  emm_stim2,
+  adjust = "none",
+  cross.adjust = "holm"
+) +
+  labs(
+    title = "Two-level Stim, Holm of all 4 cells",
+    x = "Stimulation",
+    y = "Response"
+  )
+```
+
+```{r pairwise-two-level-p}
+pw2 <- pairs(emm_stim2, reverse = TRUE, adjust = "none")
+dplyr::bind_rows(
+  dplyr::mutate(as.data.frame(pw2), method = "none"),
+  dplyr::mutate(
+    as.data.frame(summary(pw2, by = NULL, adjust = "holm")),
+    method = "Holm all 4"
+  )
+) |>
+  dplyr::select(method, Sex, Diet, contrast, p.value) |>
+  dplyr::mutate(p.value = round(p.value, 4))
+```
+
 # `bb_add_pairwise()`
 
 Add emmeans pairwise brackets to an existing ggplot. The motivating layout is a dodged bar plot: `Stim` is compared within each `Diet × Satiety` x-position, faceted by `Sex`.

@@ -1,26 +1,45 @@
 #' Create pairwise comparison table (preserves by= grouping + always cleans rowid)
 #'
 #' @param pw An `emmGrid` object (output from `pairs(emm)`)
-#' @param model Original fitted model (optional)
+#' @param model Original fitted model (optional). Recovered from `pw` when
+#'   possible; used for Gaussian Cohen's d.
+#' @param adjust Optional within-`by`-group multiplicity adjustment passed
+#'   to [emmeans::summary.emmGrid()]. `NULL` (the default) keeps the
+#'   adjustment already stored on `pw` (e.g. from `pairs(..., adjust = )`).
+#'   Ignored when `cross.adjust` is not `"none"`.
+#' @param cross.adjust If not `"none"`, treat **every** pairwise test in
+#'   `pw` as one family: `summary(pw, by = NULL, adjust = cross.adjust)`.
+#'   That is the total-number-of-comparisons correction (e.g. 4 Sex × Diet
+#'   cells, or 6 tests from 3-level Stim × 2 Groups). Default `"none"`.
+#'   This is *not* emmeans' own `cross.adjust` argument, which only
+#'   adjusts matching contrasts across by-groups.
 #'
 #' @return A tibble with grouping columns first, then contrast + effect sizes
 #' @export
-bbmake_pairwise_table <- function(pw, model = NULL) {
+bbmake_pairwise_table <- function(
+  pw,
+  model = NULL,
+  adjust = NULL,
+  cross.adjust = "none"
+) {
 
   # Auto-recover model if not supplied
   if (is.null(model)) {
-    model <- tryCatch(pw@model.info$object, error = function(e) NULL)
+    model <- .bb_recover_model(pw)
     if (is.null(model)) {
-      model <- tryCatch(get("model", envir = parent.frame(), inherits = TRUE), error = function(e) NULL)
+      model <- tryCatch(
+        get("model", envir = parent.frame(), inherits = TRUE),
+        error = function(e) NULL
+      )
     }
   }
 
   # Detect by-grouping variables (Sex, Diet, Satiety, etc.)
   by_vars <- if (!is.null(pw@misc$by.vars)) pw@misc$by.vars else character(0)
 
-  # Full summary with CIs
-  pw_summary <- summary(pw, infer = c(TRUE, TRUE)) |>
-    as_tibble()
+  pw_summary <- tibble::as_tibble(
+    .bb_pairs_summary(pw, adjust = adjust, cross.adjust = cross.adjust)
+  )
 
   # Robust CI column detection
   lcl_col <- ifelse("lower.CL" %in% names(pw_summary), "lower.CL", "asymp.LCL")
@@ -101,4 +120,38 @@ bbmake_pairwise_table <- function(pw, model = NULL) {
   pw_table |>
     mutate(contrast = stringr::str_trim(contrast)) |>
     arrange(across(any_of(by_vars)), p.value)
+}
+
+#' @keywords internal
+#' @noRd
+.bb_pairs_summary <- function(
+  pw,
+  adjust = NULL,
+  cross.adjust = "none",
+  infer = c(TRUE, TRUE)
+) {
+  pool <- !is.null(cross.adjust) && !identical(cross.adjust, "none")
+  if (isTRUE(pool)) {
+    return(summary(pw, infer = infer, by = NULL, adjust = cross.adjust))
+  }
+  if (is.null(adjust)) {
+    summary(pw, infer = infer)
+  } else {
+    summary(pw, infer = infer, adjust = adjust)
+  }
+}
+
+#' @keywords internal
+.bb_recover_model <- function(...) {
+  classes <- c("lm", "glm", "glmmTMB", "merMod", "lmerModLmerTest", "glmerMod")
+  for (obj in list(...)) {
+    if (is.null(obj) || !inherits(obj, "emmGrid")) {
+      next
+    }
+    m <- tryCatch(obj@model.info$object, error = function(e) NULL)
+    if (inherits(m, classes)) {
+      return(m)
+    }
+  }
+  NULL
 }

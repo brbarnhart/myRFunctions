@@ -42,13 +42,12 @@
 #'   matching emmeans pairwise. Common values: `"tukey"`, `"bonferroni"`,
 #'   `"holm"`, `"fdr"`, `"none"`. Adjustment is **within** each `by` group;
 #'   with one contrast per cell (two-level `Stim`) Tukey and none coincide.
-#' @param cross.adjust Additional p-value adjustment **across** `by` groups,
-#'   passed to [emmeans::summary.emmGrid()]. Default `"none"`. Use this when
-#'   each cell has one planned contrast (e.g. Stim within Sex × Diet) and
-#'   you want those cells treated as one family:
-#'   `adjust = "none", cross.adjust = "bonferroni"`. Valid methods are
-#'   [stats::p.adjust.methods] plus `"sidak"`. Ignored unless there is more
-#'   than one `by` group and the groups are the same size (emmeans rules).
+#'   Ignored when `cross.adjust` is not `"none"`.
+#' @param cross.adjust If not `"none"`, treat **every** pairwise test as
+#'   one family (`summary(pw, by = NULL, adjust = cross.adjust)`): all
+#'   Stim comparisons in all Sex × Diet cells together. Default `"none"`.
+#'   Use `adjust = "none", cross.adjust = "holm"`. Valid methods are
+#'   [stats::p.adjust.methods] plus `"sidak"`.
 #' @param digits Optional decimal places for the effect column and `p`.
 #'   `NULL` (the default) leaves full precision so [rempsyc::nice_table()]
 #'   can format the paper table.
@@ -226,7 +225,9 @@ bbmake_pairwise_sensitivity_table <- function(
     }
   )
 
-  df <- as.data.frame(pw, adjust = adjust, cross.adjust = cross.adjust)
+  df <- as.data.frame(
+    .bb_pairs_summary(pw, adjust = adjust, cross.adjust = cross.adjust)
+  )
   df$Model <- model_name
   list(
     data = df,

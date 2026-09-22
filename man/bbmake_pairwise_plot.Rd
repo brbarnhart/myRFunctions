@@ -11,6 +11,9 @@ bbmake_pairwise_plot(
   pw = NULL,
   pw_table = NULL,
   model = NULL,
+  reverse = TRUE,
+  adjust = "tukey",
+  cross.adjust = "none",
   connect = TRUE,
   hide.ns = FALSE,
   y.adjust = 0,
@@ -40,13 +43,31 @@ to auto-facet by by-variables (\code{facet_wrap} for one by-var, \code{facet_gri
 for two, \code{facet_wrap} with multiple vars otherwise). Set to \code{FALSE} to
 suppress faceting.}
 
-\item{pw}{Optional result of \code{pairs(emm)}. Computed automatically when
-both \code{pw} and \code{pw_table} are \code{NULL}.}
+\item{pw}{Optional result of \code{pairs(emm)}. Computed from \code{emm} when both
+\code{pw} and \code{pw_table} are \code{NULL}, using \code{reverse}, \code{adjust}, and
+\code{cross.adjust}. Pass this only for a custom contrast family.}
 
 \item{pw_table}{Optional output of \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}}. Built from
-\code{pw} when omitted.}
+\code{pw} when omitted. If you already have a table, p-values are used as-is
+(\code{adjust} / \code{cross.adjust} are not re-applied).}
 
-\item{model}{Optional fitted model forwarded for effect-size calculation.}
+\item{model}{Optional fitted model used for Gaussian effect sizes
+(Cohen's d). Recovered from \code{emm} / \code{pw} when possible; not needed for
+IRR / odds-ratio plots.}
+
+\item{reverse}{If \code{TRUE} (the default), reverse pairwise direction so
+later factor levels are in the numerator. Ignored when \code{pw} or
+\code{pw_table} is supplied.}
+
+\item{adjust}{Within-\code{by}-group multiplicity adjustment used when \code{pw}
+is computed from \code{emm}. Default \code{"tukey"}. Ignored when \code{pw} or
+\code{pw_table} is supplied, and ignored when \code{cross.adjust} is not \code{"none"}.}
+
+\item{cross.adjust}{If not \code{"none"}, Holm/Bonferroni/etc. \strong{all}
+pairwise tests on the plot as one family (total number of comparisons:
+every Stim pair in every Sex × Diet cell). Default \code{"none"}. Use
+\verb{adjust = "none", cross.adjust = "holm"}. Ignored when \code{pw_table} is
+supplied.}
 
 \item{connect}{If \code{TRUE}, draw lines connecting points within each panel
 along \code{x} (grouped by by-variables).}
@@ -116,7 +137,10 @@ emm <- emmeans(mod, ~ Stim | Diet * Sex, type = "response")
 bbmake_pairwise_plot(emm) +
   labs(x = "Stimulation", y = "Breakpoint (active pokes)")
 
-# Custom pairs
+# Holm every pairwise test as one family (all Sex × Diet cells)
+bbmake_pairwise_plot(emm, adjust = "none", cross.adjust = "holm")
+
+# Custom pairs still work
 bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
 
 # Extra top padding (multiplicative c(bottom, top))

@@ -12,9 +12,14 @@ get_pairs_manual <- function(
   adjust = "tukey",
   cross.adjust = "none"
 ) {
-  emmeans(model, ~ Stim | Diet * Sex, type = "response") |>
-    pairs(by = c("Sex", "Diet"), reverse = TRUE, adjust = adjust) |>
-    as.data.frame(adjust = adjust, cross.adjust = cross.adjust) |>
+  pw <- emmeans(model, ~ Stim | Diet * Sex, type = "response") |>
+    pairs(by = c("Sex", "Diet"), reverse = TRUE, adjust = adjust)
+  sm <- if (identical(cross.adjust, "none")) {
+    summary(pw, infer = c(TRUE, TRUE), adjust = adjust)
+  } else {
+    summary(pw, infer = c(TRUE, TRUE), by = NULL, adjust = cross.adjust)
+  }
+  as.data.frame(sm) |>
     mutate(Model = model_name) |>
     select(Sex, Diet, contrast, ratio, SE, p.value, Model)
 }

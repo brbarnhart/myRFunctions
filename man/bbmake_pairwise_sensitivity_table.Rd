@@ -37,15 +37,14 @@ models return IRRs rather than log-scale differences.}
 (the same argument as \code{pairs(..., adjust = )}). Default \code{"tukey"},
 matching emmeans pairwise. Common values: \code{"tukey"}, \code{"bonferroni"},
 \code{"holm"}, \code{"fdr"}, \code{"none"}. Adjustment is \strong{within} each \code{by} group;
-with one contrast per cell (two-level \code{Stim}) Tukey and none coincide.}
+with one contrast per cell (two-level \code{Stim}) Tukey and none coincide.
+Ignored when \code{cross.adjust} is not \code{"none"}.}
 
-\item{cross.adjust}{Additional p-value adjustment \strong{across} \code{by} groups,
-passed to \code{\link[emmeans:summary.emmGrid]{emmeans::summary.emmGrid()}}. Default \code{"none"}. Use this when
-each cell has one planned contrast (e.g. Stim within Sex × Diet) and
-you want those cells treated as one family:
-\verb{adjust = "none", cross.adjust = "bonferroni"}. Valid methods are
-\link[stats:p.adjust.methods]{stats::p.adjust.methods} plus \code{"sidak"}. Ignored unless there is more
-than one \code{by} group and the groups are the same size (emmeans rules).}
+\item{cross.adjust}{If not \code{"none"}, treat \strong{every} pairwise test as
+one family (\code{summary(pw, by = NULL, adjust = cross.adjust)}): all
+Stim comparisons in all Sex × Diet cells together. Default \code{"none"}.
+Use \verb{adjust = "none", cross.adjust = "holm"}. Valid methods are
+\link[stats:p.adjust.methods]{stats::p.adjust.methods} plus \code{"sidak"}.}
 
 \item{digits}{Optional decimal places for the effect column and \code{p}.
 \code{NULL} (the default) leaves full precision so \code{\link[rempsyc:nice_table]{rempsyc::nice_table()}}

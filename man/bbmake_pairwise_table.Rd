@@ -4,12 +4,25 @@
 \alias{bbmake_pairwise_table}
 \title{Create pairwise comparison table (preserves by= grouping + always cleans rowid)}
 \usage{
-bbmake_pairwise_table(pw, model = NULL)
+bbmake_pairwise_table(pw, model = NULL, adjust = NULL, cross.adjust = "none")
 }
 \arguments{
 \item{pw}{An \code{emmGrid} object (output from \code{pairs(emm)})}
 
-\item{model}{Original fitted model (optional)}
+\item{model}{Original fitted model (optional). Recovered from \code{pw} when
+possible; used for Gaussian Cohen's d.}
+
+\item{adjust}{Optional within-\code{by}-group multiplicity adjustment passed
+to \code{\link[emmeans:summary.emmGrid]{emmeans::summary.emmGrid()}}. \code{NULL} (the default) keeps the
+adjustment already stored on \code{pw} (e.g. from \code{pairs(..., adjust = )}).
+Ignored when \code{cross.adjust} is not \code{"none"}.}
+
+\item{cross.adjust}{If not \code{"none"}, treat \strong{every} pairwise test in
+\code{pw} as one family: \code{summary(pw, by = NULL, adjust = cross.adjust)}.
+That is the total-number-of-comparisons correction (e.g. 4 Sex × Diet
+cells, or 6 tests from 3-level Stim × 2 Groups). Default \code{"none"}.
+This is \emph{not} emmeans' own \code{cross.adjust} argument, which only
+adjusts matching contrasts across by-groups.}
 }
 \value{
 A tibble with grouping columns first, then contrast + effect sizes

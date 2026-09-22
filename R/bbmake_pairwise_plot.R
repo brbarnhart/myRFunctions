@@ -15,11 +15,26 @@
 #'   to auto-facet by by-variables (`facet_wrap` for one by-var, `facet_grid`
 #'   for two, `facet_wrap` with multiple vars otherwise). Set to `FALSE` to
 #'   suppress faceting.
-#' @param pw Optional result of `pairs(emm)`. Computed automatically when
-#'   both `pw` and `pw_table` are `NULL`.
+#' @param pw Optional result of `pairs(emm)`. Computed from `emm` when both
+#'   `pw` and `pw_table` are `NULL`, using `reverse`, `adjust`, and
+#'   `cross.adjust`. Pass this only for a custom contrast family.
 #' @param pw_table Optional output of [bbmake_pairwise_table()]. Built from
-#'   `pw` when omitted.
-#' @param model Optional fitted model forwarded for effect-size calculation.
+#'   `pw` when omitted. If you already have a table, p-values are used as-is
+#'   (`adjust` / `cross.adjust` are not re-applied).
+#' @param model Optional fitted model used for Gaussian effect sizes
+#'   (Cohen's d). Recovered from `emm` / `pw` when possible; not needed for
+#'   IRR / odds-ratio plots.
+#' @param reverse If `TRUE` (the default), reverse pairwise direction so
+#'   later factor levels are in the numerator. Ignored when `pw` or
+#'   `pw_table` is supplied.
+#' @param adjust Within-`by`-group multiplicity adjustment used when `pw`
+#'   is computed from `emm`. Default `"tukey"`. Ignored when `pw` or
+#'   `pw_table` is supplied, and ignored when `cross.adjust` is not `"none"`.
+#' @param cross.adjust If not `"none"`, Holm/Bonferroni/etc. **all**
+#'   pairwise tests on the plot as one family (total number of comparisons:
+#'   every Stim pair in every Sex × Diet cell). Default `"none"`. Use
+#'   `adjust = "none", cross.adjust = "holm"`. Ignored when `pw_table` is
+#'   supplied.
 #' @param connect If `TRUE`, draw lines connecting points within each panel
 #'   along `x` (grouped by by-variables).
 #' @param hide.ns Passed to [bb_add_pairwise()] and [bb_pairwise_labels()].
@@ -63,7 +78,10 @@
 #' bbmake_pairwise_plot(emm) +
 #'   labs(x = "Stimulation", y = "Breakpoint (active pokes)")
 #'
-#' # Custom pairs
+#' # Holm every pairwise test as one family (all Sex × Diet cells)
+#' bbmake_pairwise_plot(emm, adjust = "none", cross.adjust = "holm")
+#'
+#' # Custom pairs still work
 #' bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
 #'
 #' # Extra top padding (multiplicative c(bottom, top))
@@ -84,6 +102,9 @@ bbmake_pairwise_plot <- function(
     pw = NULL,
     pw_table = NULL,
     model = NULL,
+    reverse = TRUE,
+    adjust = "tukey",
+    cross.adjust = "none",
     connect = TRUE,
     hide.ns = FALSE,
     y.adjust = 0,
@@ -125,8 +146,18 @@ bbmake_pairwise_plot <- function(
 
   # ── Resolve pairwise contrasts ──────────────────────────────────────────
   if (is.null(pw) && is.null(pw_table)) {
-    # pairs() is an S3 method registered by emmeans, not an exported object
-    pw <- emmeans::contrast(emm, method = "pairwise")
+    method <- if (isTRUE(reverse)) "revpairwise" else "pairwise"
+    pw <- emmeans::contrast(emm, method = method, adjust = adjust)
+  }
+  if (is.null(model)) {
+    model <- .bb_recover_model(emm, pw)
+  }
+  if (is.null(pw_table) && inherits(pw, "emmGrid")) {
+    pw_table <- bbmake_pairwise_table(
+      pw,
+      model = model,
+      cross.adjust = cross.adjust
+    )
   }
   pw_for_add <- if (!is.null(pw_table)) pw_table else pw
 

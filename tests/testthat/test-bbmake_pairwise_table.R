@@ -78,6 +78,30 @@ test_that("bbmake_pairwise_table works on Gaussian (lmer) model - Mean Differenc
               info = paste(na_p, "NA p.value(s) found"))
 })
 
+test_that("bbmake_pairwise_table forwards cross.adjust to summary()", {
+  skip_if_not_installed("emmeans")
+
+  set.seed(1)
+  dat <- expand.grid(
+    Sex  = factor(c("F", "M")),
+    Stim = factor(c("Cont", "Opto")),
+    Diet = factor(c("Chow", "HFD")),
+    id   = 1:8
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  mod <- glm(y ~ Sex * Stim * Diet, data = dat, family = poisson)
+  emm <- emmeans(mod, ~ Stim | Diet * Sex, type = "response")
+  pw  <- pairs(emm, reverse = TRUE, adjust = "none")
+
+  none <- bbmake_pairwise_table(pw, cross.adjust = "none")
+  holm <- bbmake_pairwise_table(pw, cross.adjust = "holm")
+  expected <- as.data.frame(summary(pw, infer = c(TRUE, TRUE), by = NULL, adjust = "holm"))
+
+  expect_true(all(holm$p.value >= none$p.value - 1e-12))
+  expect_true(any(holm$p.value > none$p.value + 1e-12))
+  expect_equal(sort(holm$p.value), sort(expected$p.value))
+})
+
 # ==================================================================
 # glmmTMB count models - type = "response"
 # ==================================================================
