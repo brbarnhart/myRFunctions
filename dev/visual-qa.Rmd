@@ -571,7 +571,7 @@ bbmake_pairwise_table(pw_sg, model = mod_sg)
 
 Full-data vs outlier-removed refits of the same Poisson glm. Two-level `Stim` so each Sex × Diet cell has **one** contrast: `adjust` alone does nothing, `cross.adjust` is what treats the four cells as one family.
 
-Look for: a `Model` column (`Full` then `Outliers removed`); the same contrasts stacked; IRRs that can shift after the refit; p-values that stay the same under default Tukey-within-cell but get larger with `cross.adjust = "bonferroni"`.
+Look for: grouping columns, then `contrast`, `Model`, a test statistic (`z.ratio` or `t.ratio`), `IRR`, `SE`, `lower.CL` / `upper.CL`, and `p.value`. Full and Outliers-removed sit on adjacent rows for the same contrast. p-values stay the same under default Tukey-within-cell but get larger with `cross.adjust = "bonferroni"`.
 
 ```{r sensitivity-data}
 set.seed(1)
@@ -608,7 +608,7 @@ bbmake_pairwise_sensitivity_table(
 
 ### Pairwise, Bonferroni across cells
 
-Look for: the same IRRs as above, but larger `p` (four cells, Bonferroni).
+Look for: the same IRRs / SEs as above, but larger `p.value` (four cells, Bonferroni).
 
 ```{r sensitivity-pairwise-cross}
 bbmake_pairwise_sensitivity_table(

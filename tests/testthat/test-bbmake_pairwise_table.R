@@ -60,22 +60,19 @@ test_that("bbmake_pairwise_table works on Gaussian (lmer) model - Mean Differenc
 
   tab <- bbmake_pairwise_table(pw, model = mods$lmer)
 
-  # Column presence
-  required_cols <- c("contrast", "d", "lower.CL", "upper.CL")
-  missing_cols  <- setdiff(required_cols, names(tab))
+  required_cols <- c(
+    "contrast", "Mean Difference", "SE", "lower.CL", "upper.CL",
+    "p.value", "d"
+  )
+  missing_cols <- setdiff(required_cols, names(tab))
   expect_true(length(missing_cols) == 0,
               info = paste("Missing columns:", paste(missing_cols, collapse = ", ")))
-
-  # CI string format
-  bad_ci <- tab$`d 95% CI`[!grepl("^\\[", tab$`d 95% CI`)]
-  expect_true(length(bad_ci) == 0,
-              info = paste("Bad CI strings (should start with '['):",
-                           paste(head(bad_ci, 5), collapse = "; ")))
-
-  # No NA p-values
-  na_p <- sum(is.na(tab$p.value))
-  expect_true(na_p == 0,
-              info = paste(na_p, "NA p.value(s) found"))
+  expect_true(any(c("t.ratio", "z.ratio") %in% names(tab)))
+  expect_true(is.numeric(tab$`Mean Difference`))
+  expect_true(is.numeric(tab$SE))
+  expect_true(is.numeric(tab$lower.CL))
+  expect_true(is.numeric(tab$d))
+  expect_equal(sum(is.na(tab$p.value)), 0L)
 })
 
 test_that("bbmake_pairwise_table forwards cross.adjust to summary()", {
@@ -116,19 +113,17 @@ test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response'
 
   tab <- bbmake_pairwise_table(pw)
 
-  # Column presence
-  required_cols <- c("contrast", "IRR", "lower.CL", "upper.CL")
-  missing_cols  <- setdiff(required_cols, names(tab))
+  required_cols <- c(
+    "contrast", "IRR", "SE", "lower.CL", "upper.CL", "p.value"
+  )
+  missing_cols <- setdiff(required_cols, names(tab))
   expect_true(length(missing_cols) == 0,
               info = paste("Missing columns:", paste(missing_cols, collapse = ", ")))
-
-  # Type checks with helpful messages
-  expect_true(is.numeric(tab$`IRR`),
-              info = "Rate Ratio column should be numeric")
-  expect_true(is.numeric(tab$upper.CL),
-              info = "RR 95% CI column should be numeric")
-  expect_true(is.numeric(tab$lower.CL),
-              info = "RR 95% CI column should be numeric")
+  expect_true(any(c("z.ratio", "t.ratio") %in% names(tab)))
+  expect_true(is.numeric(tab$IRR))
+  expect_true(is.numeric(tab$SE))
+  expect_true(is.numeric(tab$upper.CL))
+  expect_true(is.numeric(tab$lower.CL))
 })
 
 test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response' + by grouping", {
@@ -144,7 +139,8 @@ test_that("bbmake_pairwise_table works on glmmTMB nbinom2 with type = 'response'
   expect_s3_class(tab, "tbl_df")
   expect_true(nrow(tab) > 0,
               info = paste("Table was empty (0 rows)"))
-  expect_true(all(c("IRR", "lower.CL", "upper.CL") %in% names(tab)))
+  expect_true(all(c("IRR", "SE", "lower.CL", "upper.CL", "p.value") %in% names(tab)))
+  expect_true(any(c("z.ratio", "t.ratio") %in% names(tab)))
 })
 
 # ==================================================================

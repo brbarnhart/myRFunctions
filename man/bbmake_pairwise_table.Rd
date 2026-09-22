@@ -25,7 +25,11 @@ This is \emph{not} emmeans' own \code{cross.adjust} argument, which only
 adjusts matching contrasts across by-groups.}
 }
 \value{
-A tibble with grouping columns first, then contrast + effect sizes
+A tibble with grouping columns (when present), then \code{contrast},
+the test statistic (\code{z.ratio} or \code{t.ratio}), \code{df} (when present), the
+effect (\code{IRR}, \verb{Odds Ratio}, or \verb{Mean Difference}), \code{SE}, \code{lower.CL},
+\code{upper.CL}, and \code{p.value}. Gaussian tables may also include Cohen's \code{d}.
+Values are left at full precision for downstream formatting.
 }
 \description{
 Create pairwise comparison table (preserves by= grouping + always cleans rowid)

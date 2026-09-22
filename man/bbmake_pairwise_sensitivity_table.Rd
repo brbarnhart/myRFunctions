@@ -11,8 +11,7 @@ bbmake_pairwise_sensitivity_table(
   reverse = TRUE,
   type = "response",
   adjust = "tukey",
-  cross.adjust = "none",
-  digits = NULL
+  cross.adjust = "none"
 )
 }
 \arguments{
@@ -44,23 +43,23 @@ Ignored when \code{cross.adjust} is not \code{"none"}.}
 one family (\code{summary(pw, by = NULL, adjust = cross.adjust)}): all
 Stim comparisons in all Sex × Diet cells together. Default \code{"none"}.
 Use \verb{adjust = "none", cross.adjust = "holm"}. Valid methods are
-\link[stats:p.adjust.methods]{stats::p.adjust.methods} plus \code{"sidak"}.}
-
-\item{digits}{Optional decimal places for the effect column and \code{p}.
-\code{NULL} (the default) leaves full precision so \code{\link[rempsyc:nice_table]{rempsyc::nice_table()}}
-can format the paper table.}
+\link[stats:p.adjust.methods]{stats::p.adjust.methods} plus \code{"sidak"}. Applied separately to each
+model.}
 }
 \value{
 A tibble with grouping columns from \code{by} (when present), then
-\code{Contrast}, \code{Model}, the effect (\code{IRR}, \verb{Odds Ratio}, or \code{estimate}),
-and \code{p}. Rows are ordered by grouping variables, contrast, then model
-list order.
+\code{contrast}, \code{Model}, the test statistic (\code{z.ratio} or \code{t.ratio}),
+\code{df} (when present), the effect (\code{IRR}, \verb{Odds Ratio}, or
+\verb{Mean Difference}), \code{SE}, \code{lower.CL}, \code{upper.CL}, and \code{p.value}.
+Rows are ordered by grouping variables, contrast, then model list
+order. Values are left at full precision for downstream formatting.
 }
 \description{
 Runs the same \code{\link[emmeans:emmeans]{emmeans::emmeans()}} pairwise contrast on each fitted
-model in a named list and stacks the results. The list names become
-the \code{Model} column, so you can compare a full-data fit against outlier
-removals (or any other refits you have already diagnosed).
+model in a named list, tidies each with \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}}, and
+stacks the results. The list names become the \code{Model} column, so you
+can compare a full-data fit against outlier removals (or any other
+refits you have already diagnosed).
 }
 \details{
 This is the \strong{pairwise} counterpart to \code{\link[=bbmake_lrt_sensitivity_table]{bbmake_lrt_sensitivity_table()}}.
@@ -79,8 +78,10 @@ bbmake_pairwise_sensitivity_table(
 }\if{html}{\out{</div>}}
 
 On the response scale, pairwise ratios are labelled \code{IRR} (counts,
-rates) or \verb{Odds Ratio} (binomial). Gaussian / link-scale pairs keep
-\code{estimate}. Random effects are handled by emmeans in the usual way.
+rates) or \verb{Odds Ratio} (binomial). Gaussian / link-scale pairs use
+\verb{Mean Difference}. Random effects are handled by emmeans in the usual
+way. Holm (or other \code{cross.adjust} methods) is applied \strong{within each
+model}, not across the stacked rows.
 }
 \examples{
 set.seed(1)

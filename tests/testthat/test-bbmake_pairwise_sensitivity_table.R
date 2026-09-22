@@ -67,11 +67,17 @@ test_that("named list of glm models matches the imap_dfr pairs pipeline", {
   )
 
   expect_s3_class(tab, "tbl_df")
-  expect_equal(names(tab), c("Sex", "Diet", "Contrast", "Model", "IRR", "p"))
-  expect_equal(as.character(tab$Contrast), expected$contrast)
+  expect_equal(
+    names(tab)[1:4],
+    c("Sex", "Diet", "contrast", "Model")
+  )
+  expect_true(names(tab)[5] %in% c("z.ratio", "t.ratio"))
+  expect_true(all(c("IRR", "SE", "lower.CL", "upper.CL", "p.value") %in% names(tab)))
+  expect_equal(as.character(tab$contrast), expected$contrast)
   expect_equal(as.character(tab$Model), expected$Model)
   expect_equal(tab$IRR, expected$ratio)
-  expect_equal(tab$p, expected$p.value)
+  expect_equal(tab$SE, expected$SE)
+  expect_equal(tab$p.value, expected$p.value)
   expect_equal(tab$Sex, expected$Sex)
   expect_equal(tab$Diet, expected$Diet)
 })
@@ -114,7 +120,7 @@ test_that("by defaults to emmeans by-variables from specs", {
   tab <- bbmake_pairwise_sensitivity_table(mods, ~ Stim | Diet * Sex)
 
   expect_true(all(c("Diet", "Sex") %in% names(tab)))
-  expect_true("Contrast" %in% names(tab))
+  expect_true("contrast" %in% names(tab))
 })
 
 test_that("two-way specs work without a Diet by-variable", {
@@ -130,7 +136,8 @@ test_that("two-way specs work without a Diet by-variable", {
 
   tab <- bbmake_pairwise_sensitivity_table(mods, ~ Stim | Sex, by = "Sex")
 
-  expect_equal(names(tab), c("Sex", "Contrast", "Model", "IRR", "p"))
+  expect_equal(names(tab)[1:3], c("Sex", "contrast", "Model"))
+  expect_true(all(c("IRR", "SE", "p.value") %in% names(tab)))
   expect_false("Diet" %in% names(tab))
 })
 
@@ -138,7 +145,7 @@ test_that("two-way specs work without a Diet by-variable", {
 # Gaussian estimate column
 # ==================================================================
 
-test_that("gaussian models keep estimate instead of IRR", {
+test_that("gaussian models keep Mean Difference instead of IRR", {
   s <- setup_sensitivity_models()
   set.seed(1)
   dat <- s$data
@@ -154,31 +161,16 @@ test_that("gaussian models keep estimate instead of IRR", {
     by = c("Sex", "Diet")
   )
 
-  expect_true("estimate" %in% names(tab))
+  expect_true("Mean Difference" %in% names(tab))
   expect_false("IRR" %in% names(tab))
-  expect_true(is.numeric(tab$estimate))
+  expect_false("d" %in% names(tab))
+  expect_true(is.numeric(tab$`Mean Difference`))
+  expect_true(all(c("SE", "lower.CL", "upper.CL") %in% names(tab)))
 })
 
 # ==================================================================
-# digits and input checks
+# input checks
 # ==================================================================
-
-test_that("digits rounds the effect column and p only", {
-  s <- setup_sensitivity_models()
-  mods <- list(Full = s$Full, Reduced = s$Reduced)
-  raw <- bbmake_pairwise_sensitivity_table(
-    mods, ~ Stim | Diet * Sex, by = c("Sex", "Diet")
-  )
-  rnd <- bbmake_pairwise_sensitivity_table(
-    mods, ~ Stim | Diet * Sex,
-    by = c("Sex", "Diet"),
-    digits = 3
-  )
-
-  expect_equal(rnd$IRR, round(raw$IRR, 3))
-  expect_equal(rnd$p, round(raw$p, 3))
-  expect_equal(as.character(rnd$Contrast), as.character(raw$Contrast))
-})
 
 test_that("invalid inputs error clearly", {
   s <- setup_sensitivity_models()
@@ -198,10 +190,6 @@ test_that("invalid inputs error clearly", {
   expect_error(
     bbmake_pairwise_sensitivity_table(list(Full = s$Full)),
     "`specs` is missing"
-  )
-  expect_error(
-    bbmake_pairwise_sensitivity_table(list(Full = s$Full), ~ Stim | Sex, digits = -1),
-    "`digits`"
   )
 })
 
@@ -226,16 +214,16 @@ test_that("adjust is forwarded to contrast/pairs", {
   tukey <- bbmake_pairwise_sensitivity_table(mods, ~ Stim, adjust = "tukey")
   default <- bbmake_pairwise_sensitivity_table(mods, ~ Stim)
 
-  expect_equal(default$p, tukey$p)
-  expect_true(all(bonf$p >= none$p - 1e-12))
-  expect_true(any(bonf$p > none$p + 1e-12))
+  expect_equal(default$p.value, tukey$p.value)
+  expect_true(all(bonf$p.value >= none$p.value - 1e-12))
+  expect_true(any(bonf$p.value > none$p.value + 1e-12))
 
   emm <- emmeans(mods$Full, ~ Stim, type = "response")
   expected <- as.data.frame(
     contrast(emm, method = "revpairwise", adjust = "bonferroni")
   )
   got <- bonf[as.character(bonf$Model) == "Full", ]
-  expect_equal(got$p, expected$p.value)
+  expect_equal(got$p.value, expected$p.value)
   expect_equal(got$IRR, expected$ratio)
 })
 
@@ -257,7 +245,7 @@ test_that("adjust matches the pairs() oracle on the factorial glm", {
     adjust = "bonferroni"
   )
 
-  expect_equal(tab$p, expected$p.value)
+  expect_equal(tab$p.value, expected$p.value)
 })
 
 test_that("cross.adjust is forwarded across by-groups", {
@@ -281,9 +269,9 @@ test_that("cross.adjust is forwarded across by-groups", {
     by = c("Sex", "Diet")
   )
 
-  expect_equal(default$p, none$p)
-  expect_true(all(cross$p >= none$p - 1e-12))
-  expect_true(any(cross$p > none$p + 1e-12))
+  expect_equal(default$p.value, none$p.value)
+  expect_true(all(cross$p.value >= none$p.value - 1e-12))
+  expect_true(any(cross$p.value > none$p.value + 1e-12))
 
   expected <- dplyr::bind_rows(
     get_pairs_manual(s$Full, "Full", adjust = "none", cross.adjust = "bonferroni"),
@@ -292,7 +280,7 @@ test_that("cross.adjust is forwarded across by-groups", {
     mutate(contrast = stringr::str_trim(contrast)) |>
     arrange(Sex, Diet, contrast, Model)
 
-  expect_equal(cross$p, expected$p.value)
+  expect_equal(cross$p.value, expected$p.value)
   expect_equal(cross$IRR, expected$ratio)
 })
 
@@ -325,7 +313,8 @@ test_that("glmmTMB nbinom2 models return IRR contrasts", {
   ))
 
   expect_s3_class(tab, "tbl_df")
-  expect_equal(names(tab), c("Sex", "Diet", "Contrast", "Model", "IRR", "p"))
+  expect_equal(names(tab)[1:4], c("Sex", "Diet", "contrast", "Model"))
+  expect_true(all(c("IRR", "SE", "lower.CL", "upper.CL", "p.value") %in% names(tab)))
   expect_true(is.numeric(tab$IRR))
   expect_true(all(tab$IRR > 0))
   expect_equal(levels(tab$Model), c("Full", "Reduced"))

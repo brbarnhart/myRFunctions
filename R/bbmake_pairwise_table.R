@@ -14,7 +14,11 @@
 #'   This is *not* emmeans' own `cross.adjust` argument, which only
 #'   adjusts matching contrasts across by-groups.
 #'
-#' @return A tibble with grouping columns first, then contrast + effect sizes
+#' @return A tibble with grouping columns (when present), then `contrast`,
+#'   the test statistic (`z.ratio` or `t.ratio`), `df` (when present), the
+#'   effect (`IRR`, `Odds Ratio`, or `Mean Difference`), `SE`, `lower.CL`,
+#'   `upper.CL`, and `p.value`. Gaussian tables may also include Cohen's `d`.
+#'   Values are left at full precision for downstream formatting.
 #' @export
 bbmake_pairwise_table <- function(
   pw,
@@ -22,104 +26,116 @@ bbmake_pairwise_table <- function(
   adjust = NULL,
   cross.adjust = "none"
 ) {
-
-  # Auto-recover model if not supplied
   if (is.null(model)) {
     model <- .bb_recover_model(pw)
-    if (is.null(model)) {
-      model <- tryCatch(
-        get("model", envir = parent.frame(), inherits = TRUE),
-        error = function(e) NULL
-      )
-    }
   }
 
-  # Detect by-grouping variables (Sex, Diet, Satiety, etc.)
   by_vars <- if (!is.null(pw@misc$by.vars)) pw@misc$by.vars else character(0)
 
   pw_summary <- tibble::as_tibble(
     .bb_pairs_summary(pw, adjust = adjust, cross.adjust = cross.adjust)
   )
 
-  # Robust CI column detection
-  lcl_col <- ifelse("lower.CL" %in% names(pw_summary), "lower.CL", "asymp.LCL")
-  ucl_col <- ifelse("upper.CL" %in% names(pw_summary), "upper.CL", "asymp.UCL")
+  out <- .bb_tidy_pairwise_table(pw_summary, by_vars = by_vars)
 
-  has_ratio <- "ratio"      %in% colnames(pw_summary)
-  has_odds  <- "odds.ratio" %in% colnames(pw_summary)
-
-  if (has_ratio) {
-    pw_table <- pw_summary |>
-      mutate(
-        IRR        = round(ratio, 2),
-        lower.CL   = .data[[lcl_col]],
-        upper.CL   = .data[[ucl_col]],
-        `% Change` = 100 * (ratio - 1)
-      ) |>
-      select(any_of(by_vars), contrast,
-             any_of(c("z.ratio", "t.ratio")), p.value,
-             IRR, lower.CL, upper.CL)
-
-  } else if (has_odds) {
-    pw_table <- pw_summary |>
-      mutate(
-        `Odds Ratio` = round(odds.ratio, 2),
-        lower.CL   = .data[[lcl_col]],
-        upper.CL   = .data[[ucl_col]]
-      ) |>
-      select(any_of(by_vars), contrast,
-             any_of(c("z.ratio", "t.ratio")), p.value,
-             `Odds Ratio`, lower.CL, upper.CL)
-
-  } else {
-    # ==================== GAUSSIAN / LINK-SCALE MODELS ====================
-    pw_table <- pw_summary |>
-      select(any_of(by_vars), everything()) |>
-      rename(`Mean Difference` = estimate) |>
-      select(
-        any_of(by_vars),
-        contrast,
-        any_of(c("t.ratio", "z.ratio")),
-        any_of("df"),
-        p.value
-      ) |>
-      rowid_to_column("rowid")
-
-    # Cohen's d (only for true Gaussian models)
-    if (!is.null(model)) {
-      cohen_d <- tryCatch({
-        emmeans::eff_size(
+  if (!is.null(model) && "Mean Difference" %in% names(out)) {
+    cohen_d <- tryCatch(
+      {
+        d_tab <- emmeans::eff_size(
           pw,
-          sigma = sigma(model),
-          edf   = df.residual(model),
+          sigma = stats::sigma(model),
+          edf = stats::df.residual(model),
           method = "identity"
         ) |>
           summary(infer = TRUE) |>
-          as_tibble() |>
-          rowid_to_column("rowid") |>
-          rename(`d` = effect.size) |>
-          # mutate(`d 95% CI` = sprintf("[%.2f, %.2f]", lower.CL, upper.CL)) |>
-          select(rowid, d, lower.CL, upper.CL)
-      }, error = function(e) {
+          tibble::as_tibble()
+        tibble::tibble(d = d_tab$effect.size)
+      },
+      error = function(e) {
         warning("Cohen's d could not be calculated: ", e$message, call. = FALSE)
         NULL
-      })
-
-      if (!is.null(cohen_d)) {
-        pw_table <- left_join(pw_table, cohen_d, by = "rowid") |>
-          select(-rowid)
-      } else {
-        pw_table <- pw_table |> select(-rowid)
       }
-    } else {
-      pw_table <- pw_table |> select(-rowid)
+    )
+    if (!is.null(cohen_d) && nrow(cohen_d) == nrow(out)) {
+      out$d <- cohen_d$d
     }
   }
 
-  # Final polishing
-  pw_table |>
-    mutate(contrast = stringr::str_trim(contrast)) |>
-    arrange(across(any_of(by_vars)), p.value)
+  dplyr::arrange(
+    out,
+    dplyr::across(dplyr::any_of(c(by_vars, "p.value")))
+  )
+}
+
+#' @keywords internal
+#' @noRd
+.bb_tidy_pairwise_table <- function(pw_summary, by_vars) {
+  lcl_col <- if ("lower.CL" %in% names(pw_summary)) {
+    "lower.CL"
+  } else if ("asymp.LCL" %in% names(pw_summary)) {
+    "asymp.LCL"
+  } else {
+    NULL
+  }
+  ucl_col <- if ("upper.CL" %in% names(pw_summary)) {
+    "upper.CL"
+  } else if ("asymp.UCL" %in% names(pw_summary)) {
+    "asymp.UCL"
+  } else {
+    NULL
+  }
+
+  if (!is.null(lcl_col) && lcl_col != "lower.CL") {
+    names(pw_summary)[names(pw_summary) == lcl_col] <- "lower.CL"
+  }
+  if (!is.null(ucl_col) && ucl_col != "upper.CL") {
+    names(pw_summary)[names(pw_summary) == ucl_col] <- "upper.CL"
+  }
+
+  if ("ratio" %in% names(pw_summary)) {
+    pw_summary <- dplyr::rename(pw_summary, IRR = "ratio")
+  } else if ("odds.ratio" %in% names(pw_summary)) {
+    pw_summary <- dplyr::rename(pw_summary, `Odds Ratio` = "odds.ratio")
+  } else if ("estimate" %in% names(pw_summary)) {
+    pw_summary <- dplyr::rename(pw_summary, `Mean Difference` = "estimate")
+  }
+
+  if (!"contrast" %in% names(pw_summary) || !"p.value" %in% names(pw_summary)) {
+    stop(
+      "pairs() did not return contrast and p.value. Columns were: ",
+      paste(names(pw_summary), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  effect_cols <- intersect(
+    c("IRR", "Odds Ratio", "Mean Difference"),
+    names(pw_summary)
+  )
+  if (length(effect_cols) == 0L) {
+    stop(
+      "pairs() did not return ratio, odds.ratio, or estimate. Columns were: ",
+      paste(names(pw_summary), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  pw_summary[["contrast"]] <- stringr::str_trim(pw_summary[["contrast"]])
+
+  keep <- c(
+    by_vars,
+    "contrast",
+    "df",
+    "z.ratio",
+    "t.ratio",
+    effect_cols,
+    "lower.CL",
+    "upper.CL",
+    "SE",
+    "p.value"
+  )
+  keep <- keep[keep %in% names(pw_summary)]
+  dplyr::select(pw_summary, dplyr::all_of(keep))
 }
 
 #' @keywords internal

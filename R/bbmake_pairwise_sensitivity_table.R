@@ -1,9 +1,10 @@
 #' Sensitivity table of planned contrasts across models
 #'
 #' Runs the same [emmeans::emmeans()] pairwise contrast on each fitted
-#' model in a named list and stacks the results. The list names become
-#' the `Model` column, so you can compare a full-data fit against outlier
-#' removals (or any other refits you have already diagnosed).
+#' model in a named list, tidies each with [bbmake_pairwise_table()], and
+#' stacks the results. The list names become the `Model` column, so you
+#' can compare a full-data fit against outlier removals (or any other
+#' refits you have already diagnosed).
 #'
 #' This is the **pairwise** counterpart to [bbmake_lrt_sensitivity_table()].
 #' Pairwise tables ask whether planned cell comparisons change after a
@@ -22,8 +23,10 @@
 #' ```
 #'
 #' On the response scale, pairwise ratios are labelled `IRR` (counts,
-#' rates) or `Odds Ratio` (binomial). Gaussian / link-scale pairs keep
-#' `estimate`. Random effects are handled by emmeans in the usual way.
+#' rates) or `Odds Ratio` (binomial). Gaussian / link-scale pairs use
+#' `Mean Difference`. Random effects are handled by emmeans in the usual
+#' way. Holm (or other `cross.adjust` methods) is applied **within each
+#' model**, not across the stacked rows.
 #'
 #' @param models A **named** list of fitted models (e.g. `glmmTMB`, `glm`,
 #'   `lm`, `lme4::merMod`). Names are used as-is in the `Model` column.
@@ -47,15 +50,15 @@
 #'   one family (`summary(pw, by = NULL, adjust = cross.adjust)`): all
 #'   Stim comparisons in all Sex × Diet cells together. Default `"none"`.
 #'   Use `adjust = "none", cross.adjust = "holm"`. Valid methods are
-#'   [stats::p.adjust.methods] plus `"sidak"`.
-#' @param digits Optional decimal places for the effect column and `p`.
-#'   `NULL` (the default) leaves full precision so [rempsyc::nice_table()]
-#'   can format the paper table.
+#'   [stats::p.adjust.methods] plus `"sidak"`. Applied separately to each
+#'   model.
 #'
 #' @return A tibble with grouping columns from `by` (when present), then
-#'   `Contrast`, `Model`, the effect (`IRR`, `Odds Ratio`, or `estimate`),
-#'   and `p`. Rows are ordered by grouping variables, contrast, then model
-#'   list order.
+#'   `contrast`, `Model`, the test statistic (`z.ratio` or `t.ratio`),
+#'   `df` (when present), the effect (`IRR`, `Odds Ratio`, or
+#'   `Mean Difference`), `SE`, `lower.CL`, `upper.CL`, and `p.value`.
+#'   Rows are ordered by grouping variables, contrast, then model list
+#'   order. Values are left at full precision for downstream formatting.
 #'
 #' @seealso [bbmake_lrt_sensitivity_table()] for Type II LRTs across the
 #'   same models, [bbmake_pairwise_table()] for a single-model pairwise
@@ -94,8 +97,7 @@ bbmake_pairwise_sensitivity_table <- function(
   reverse = TRUE,
   type = "response",
   adjust = "tukey",
-  cross.adjust = "none",
-  digits = NULL
+  cross.adjust = "none"
 ) {
   models <- .bb_as_named_model_list(models)
   if (missing(specs) || is.null(specs)) {
@@ -103,10 +105,6 @@ bbmake_pairwise_sensitivity_table <- function(
       "`specs` is missing. Pass an emmeans formula such as `~ Stim | Diet * Sex`.",
       call. = FALSE
     )
-  }
-  if (!is.null(digits) &&
-      (!is.numeric(digits) || length(digits) != 1L || is.na(digits) || digits < 0)) {
-    stop("`digits` must be a single non-negative number or NULL.", call. = FALSE)
   }
 
   nms <- names(models)
@@ -131,22 +129,30 @@ bbmake_pairwise_sensitivity_table <- function(
   }
 
   out <- dplyr::bind_rows(pieces)
-  out <- .bb_tidy_pairwise_sensitivity(out, by_vars = by_vars, model_levels = nms)
+  out[["Model"]] <- factor(out[["Model"]], levels = nms)
 
-  if (!is.null(digits) && nrow(out) > 0L) {
-    num_cols <- intersect(
-      c("IRR", "Odds Ratio", "estimate", "p"),
-      names(out)
-    )
-    if (length(num_cols) > 0L) {
-      out <- dplyr::mutate(
-        out,
-        dplyr::across(dplyr::all_of(num_cols), function(x) round(x, digits))
-      )
-    }
-  }
+  keep <- c(
+    by_vars,
+    "contrast",
+    "Model",
+    "z.ratio",
+    "t.ratio",
+    "df",
+    "IRR",
+    "Odds Ratio",
+    "Mean Difference",
+    "SE",
+    "lower.CL",
+    "upper.CL",
+    "p.value"
+  )
+  keep <- keep[keep %in% names(out)]
+  out <- dplyr::select(out, dplyr::all_of(keep))
 
-  tibble::as_tibble(out)
+  dplyr::arrange(
+    tibble::as_tibble(out),
+    dplyr::across(dplyr::any_of(c(by_vars, "contrast", "Model")))
+  )
 }
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
@@ -225,51 +231,15 @@ bbmake_pairwise_sensitivity_table <- function(
     }
   )
 
-  df <- as.data.frame(
-    .bb_pairs_summary(pw, adjust = adjust, cross.adjust = cross.adjust)
+  tab <- bbmake_pairwise_table(
+    pw,
+    model = NULL,
+    adjust = adjust,
+    cross.adjust = cross.adjust
   )
-  df$Model <- model_name
+  tab$Model <- model_name
   list(
-    data = df,
+    data = tab,
     by_vars = if (is.null(by_use)) character() else as.character(by_use)
-  )
-}
-
-#' @keywords internal
-.bb_tidy_pairwise_sensitivity <- function(out, by_vars, model_levels) {
-  if ("ratio" %in% names(out)) {
-    out <- dplyr::rename(out, IRR = "ratio")
-  } else if ("odds.ratio" %in% names(out)) {
-    out <- dplyr::rename(out, `Odds Ratio` = "odds.ratio")
-  }
-
-  if (!"contrast" %in% names(out) || !"p.value" %in% names(out)) {
-    stop(
-      "contrast() did not return contrast and p.value. Columns were: ",
-      paste(names(out), collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  effect_cols <- intersect(c("IRR", "Odds Ratio", "estimate"), names(out))
-  if (length(effect_cols) == 0L) {
-    stop(
-      "contrast() did not return ratio, odds.ratio, or estimate. Columns were: ",
-      paste(names(out), collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  out[["contrast"]] <- stringr::str_trim(out[["contrast"]])
-  out[["Model"]] <- factor(out[["Model"]], levels = model_levels)
-  out <- dplyr::rename(out, Contrast = "contrast", p = "p.value")
-
-  keep <- c(by_vars, "Contrast", "Model", effect_cols, "p")
-  keep <- keep[keep %in% names(out)]
-  out <- dplyr::select(out, dplyr::all_of(keep))
-
-  dplyr::arrange(
-    out,
-    dplyr::across(dplyr::any_of(c(by_vars, "Contrast", "Model")))
   )
 }
