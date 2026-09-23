@@ -252,7 +252,7 @@ bbmake_pairwise_plot(
 
 ## Just `emm`
 
-Look for: the same layout as the default plot, without passing `pw` or `model`. Reverse Tukey pairs are built from `emm`.
+Look for: the same layout as the default plot, without passing `pw` or `model`. Reverse pairs are built from `emm`, then Holm is applied across every Stim comparison in both Groups. The console message reports that count.
 
 ```{r pairwise-emm-only, fig.height=4.8}
 bbmake_pairwise_plot(emm_sg) +
@@ -265,11 +265,11 @@ bbmake_pairwise_plot(emm_sg) +
 
 ## Holm of every pairwise test (`cross.adjust`)
 
-`cross.adjust` Holms (or Bonferroni, etc.) **all** pairwise tests as one family: every Stim comparison in every by-cell. That is the total-number-of-comparisons correction.
+The default Holms **all** pairwise tests as one family: every Stim comparison in every by-cell. That is the total-number-of-comparisons correction. `cross.adjust = "none"` leaves the p-values unadjusted.
 
-The usual paper figure is two-level Stim (Cont vs Opto) within Sex × Diet: four tests, Tukey-within-cell does nothing, Holm of 4 raises p and can drop stars.
+The usual paper figure is two-level Stim (Cont vs Opto) within Sex × Diet: four tests, so within-cell Tukey does nothing, and Holm of 4 raises p and can drop stars.
 
-Look for: unadjusted plot has `*` in F/Chow and M/HFD; Holm plot those become `ns`; F/HFD stays `***`. Mean differences stay the same.
+Look for: unadjusted plot has `*` in F/Chow and M/HFD; the default Holm plot those become `ns`; F/HFD stays `***`. Mean differences stay the same.
 
 ```{r pairwise-two-level-data}
 set.seed(5)
@@ -294,7 +294,7 @@ emm_stim2 <- emmeans(mod_stim2, ~ Stim | Sex * Diet)
 ```
 
 ```{r pairwise-two-level-none, fig.height=5.5, fig.width=8}
-bbmake_pairwise_plot(emm_stim2, adjust = "none") +
+bbmake_pairwise_plot(emm_stim2, adjust = "none", cross.adjust = "none") +
   labs(
     title = "Two-level Stim, unadjusted",
     x = "Stimulation",
@@ -564,6 +564,8 @@ Not plots, but easy to scan here so a broken table does not sneak through with a
 
 ```{r tables}
 bbmake_model_table(mod_sg)
+# Default p-values: Holm across every comparison in pw_sg
+# (3 Stim pairs x 2 Groups).
 bbmake_pairwise_table(pw_sg, model = mod_sg)
 ```
 
@@ -571,7 +573,7 @@ bbmake_pairwise_table(pw_sg, model = mod_sg)
 
 Full-data vs outlier-removed refits of the same Poisson glm. Two-level `Stim` so each Sex × Diet cell has **one** contrast: `adjust` alone does nothing, `cross.adjust` is what treats the four cells as one family.
 
-Look for: grouping columns, then `contrast`, `Model`, a test statistic (`z.ratio` or `t.ratio`), `IRR`, `SE`, `lower.CL` / `upper.CL`, and `p.value`. Full and Outliers-removed sit on adjacent rows for the same contrast. p-values stay the same under default Tukey-within-cell but get larger with `cross.adjust = "bonferroni"`.
+Look for: grouping columns, then `contrast`, `Model`, a test statistic (`z.ratio` or `t.ratio`), `IRR`, `SE`, `lower.CL` / `upper.CL`, and `p.value`. Full and Outliers-removed sit on adjacent rows for the same contrast. The default Holms the four cells within each model; Bonferroni makes those p-values larger still.
 
 ```{r sensitivity-data}
 set.seed(1)
@@ -594,9 +596,9 @@ mods_sens <- list(
 )
 ```
 
-### Pairwise, default (`adjust = "tukey"`, `cross.adjust = "none"`)
+### Pairwise, default (Holm across the four cells, within each model)
 
-With one contrast per cell these p-values match the unadjusted tests.
+The console message reports `Holm across 4 comparisons within each model`. IRRs match the unadjusted tests; p-values are larger.
 
 ```{r sensitivity-pairwise-default}
 bbmake_pairwise_sensitivity_table(

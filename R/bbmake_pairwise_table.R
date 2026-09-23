@@ -1,18 +1,23 @@
 #' Create pairwise comparison table (preserves by= grouping + always cleans rowid)
 #'
+#' By default every comparison in `pw` is one family and p-values are
+#' adjusted with Holm (`adjust = "none"`, `cross.adjust = "holm"`). A
+#' message reports the method and how many comparisons that covers, for
+#' example `Holm across 6 comparisons`.
+#'
 #' @param pw An `emmGrid` object (output from `pairs(emm)`)
 #' @param model Original fitted model (optional). Recovered from `pw` when
 #'   possible; used for Gaussian Cohen's d.
-#' @param adjust Optional within-`by`-group multiplicity adjustment passed
-#'   to [emmeans::summary.emmGrid()]. `NULL` (the default) keeps the
+#' @param adjust Within-`by`-group multiplicity adjustment passed to
+#'   [emmeans::summary.emmGrid()]. Default `"none"`. `NULL` keeps the
 #'   adjustment already stored on `pw` (e.g. from `pairs(..., adjust = )`).
 #'   Ignored when `cross.adjust` is not `"none"`.
-#' @param cross.adjust If not `"none"`, treat **every** pairwise test in
+#' @param cross.adjust Adjustment applied to **every** pairwise test in
 #'   `pw` as one family: `summary(pw, by = NULL, adjust = cross.adjust)`.
 #'   That is the total-number-of-comparisons correction (e.g. 4 Sex × Diet
-#'   cells, or 6 tests from 3-level Stim × 2 Groups). Default `"none"`.
-#'   This is *not* emmeans' own `cross.adjust` argument, which only
-#'   adjusts matching contrasts across by-groups.
+#'   cells, or 6 tests from 3-level Stim × 2 Groups). Default `"holm"`.
+#'   Set `"none"` to skip it. This is *not* emmeans' own `cross.adjust`
+#'   argument, which only adjusts matching contrasts across by-groups.
 #'
 #' @return A tibble with grouping columns (when present), then `contrast`,
 #'   the test statistic (`z.ratio` or `t.ratio`), `df` (when present), the
@@ -25,8 +30,8 @@
 bbmake_pairwise_table <- function(
   pw,
   model = NULL,
-  adjust = NULL,
-  cross.adjust = "none"
+  adjust = "none",
+  cross.adjust = "holm"
 ) {
   if (is.null(model)) {
     model <- .bb_recover_model(pw)
@@ -150,13 +155,53 @@ bbmake_pairwise_table <- function(
 ) {
   pool <- !is.null(cross.adjust) && !identical(cross.adjust, "none")
   if (isTRUE(pool)) {
-    return(summary(pw, infer = infer, by = NULL, adjust = cross.adjust))
+    out <- summary(pw, infer = infer, by = NULL, adjust = cross.adjust)
+    .bb_announce_adjustment(cross.adjust, nrow(out))
+    return(out)
   }
   if (is.null(adjust)) {
     summary(pw, infer = infer)
   } else {
     summary(pw, infer = infer, adjust = adjust)
   }
+}
+
+#' @keywords internal
+#' @noRd
+.bb_announce_adjustment <- function(method, n, scope = NULL) {
+  if (is.null(method) || identical(method, "none") || !is.numeric(n) || n < 1L) {
+    return(invisible(NULL))
+  }
+  n <- as.integer(n)
+  noun <- if (n == 1L) "comparison" else "comparisons"
+  where <- if (is.null(scope) || !nzchar(scope)) {
+    ""
+  } else {
+    paste0(" within each ", scope)
+  }
+  message(
+    "P values adjusted with ", .bb_adjust_label(method),
+    " across ", n, " ", noun, where, "."
+  )
+}
+
+#' @keywords internal
+#' @noRd
+.bb_adjust_label <- function(method) {
+  labels <- c(
+    holm = "Holm",
+    bonferroni = "Bonferroni",
+    tukey = "Tukey",
+    sidak = "Sidak",
+    fdr = "FDR",
+    hochberg = "Hochberg",
+    hommel = "Hommel",
+    BH = "BH",
+    BY = "BY",
+    scheffe = "Scheffe",
+    mvt = "multivariate-t"
+  )
+  if (method %in% names(labels)) labels[[method]] else method
 }
 
 #' @keywords internal

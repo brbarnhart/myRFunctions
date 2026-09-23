@@ -54,16 +54,22 @@ test_that("named list of glm models matches the imap_dfr pairs pipeline", {
   mods <- list(Full = s$Full, `Outliers removed` = s$Reduced)
 
   expected <- dplyr::bind_rows(
-    get_pairs_manual(s$Full, "Full"),
-    get_pairs_manual(s$Reduced, "Outliers removed")
+    get_pairs_manual(s$Full, "Full", adjust = "none", cross.adjust = "holm"),
+    get_pairs_manual(
+      s$Reduced, "Outliers removed",
+      adjust = "none", cross.adjust = "holm"
+    )
   ) |>
     mutate(contrast = stringr::str_trim(contrast)) |>
     arrange(Sex, Diet, contrast, Model)
 
-  tab <- bbmake_pairwise_sensitivity_table(
-    mods,
-    ~ Stim | Diet * Sex,
-    by = c("Sex", "Diet")
+  expect_message(
+    tab <- bbmake_pairwise_sensitivity_table(
+      mods,
+      ~ Stim | Diet * Sex,
+      by = c("Sex", "Diet")
+    ),
+    "Holm across 4 comparisons within each model"
   )
 
   expect_s3_class(tab, "tbl_df")
@@ -209,12 +215,22 @@ test_that("adjust is forwarded to contrast/pairs", {
     Reduced = glm(y ~ Stim, data = dat[-1, ], family = poisson)
   )
 
-  none <- bbmake_pairwise_sensitivity_table(mods, ~ Stim, adjust = "none")
-  bonf <- bbmake_pairwise_sensitivity_table(mods, ~ Stim, adjust = "bonferroni")
-  tukey <- bbmake_pairwise_sensitivity_table(mods, ~ Stim, adjust = "tukey")
-  default <- bbmake_pairwise_sensitivity_table(mods, ~ Stim)
+  none <- bbmake_pairwise_sensitivity_table(
+    mods, ~ Stim, adjust = "none", cross.adjust = "none"
+  )
+  bonf <- bbmake_pairwise_sensitivity_table(
+    mods, ~ Stim, adjust = "bonferroni", cross.adjust = "none"
+  )
+  tukey <- bbmake_pairwise_sensitivity_table(
+    mods, ~ Stim, adjust = "tukey", cross.adjust = "none"
+  )
+  expect_message(
+    default <- bbmake_pairwise_sensitivity_table(mods, ~ Stim),
+    "Holm across 3 comparisons within each model"
+  )
 
-  expect_equal(default$p.value, tukey$p.value)
+  expect_false(isTRUE(all.equal(default$p.value, tukey$p.value)))
+  expect_true(all(default$p.value >= none$p.value - 1e-12))
   expect_true(all(bonf$p.value >= none$p.value - 1e-12))
   expect_true(any(bonf$p.value > none$p.value + 1e-12))
 
@@ -242,7 +258,8 @@ test_that("adjust matches the pairs() oracle on the factorial glm", {
     mods,
     ~ Stim | Diet * Sex,
     by = c("Sex", "Diet"),
-    adjust = "bonferroni"
+    adjust = "bonferroni",
+    cross.adjust = "none"
   )
 
   expect_equal(tab$p.value, expected$p.value)
@@ -264,12 +281,16 @@ test_that("cross.adjust is forwarded across by-groups", {
     adjust = "none",
     cross.adjust = "bonferroni"
   )
-  default <- bbmake_pairwise_sensitivity_table(
-    mods, ~ Stim | Diet * Sex,
-    by = c("Sex", "Diet")
-  )
 
-  expect_equal(default$p.value, none$p.value)
+  expect_message(
+    default <- bbmake_pairwise_sensitivity_table(
+      mods, ~ Stim | Diet * Sex,
+      by = c("Sex", "Diet")
+    ),
+    "Holm across 4 comparisons within each model"
+  )
+  expect_true(all(default$p.value >= none$p.value - 1e-12))
+  expect_true(any(default$p.value > none$p.value + 1e-12))
   expect_true(all(cross$p.value >= none$p.value - 1e-12))
   expect_true(any(cross$p.value > none$p.value + 1e-12))
 

@@ -10,7 +10,8 @@
 #' @param emm An `emmGrid` (or data frame / result of [bb_emm_df()]) used to
 #'   place significance brackets above the tallest CI in each panel.
 #' @param pw_table Optional output of [bbmake_pairwise_table()]. Built from
-#'   `pw` when omitted.
+#'   `pw` when omitted, using that function's defaults (Holm across every
+#'   comparison). Supply `pw_table` to keep p-values you already adjusted.
 #' @param model Optional fitted model forwarded to [bbmake_pairwise_table()]
 #'   for effect sizes (e.g. Cohen's d).
 #' @param y.adjust Vertical nudge added to each bracket's base y-position.

@@ -25,8 +25,10 @@
 #' On the response scale, pairwise ratios are labelled `IRR` (counts,
 #' rates) or `Odds Ratio` (binomial). Gaussian / link-scale pairs use
 #' `Mean Difference`. Random effects are handled by emmeans in the usual
-#' way. Holm (or other `cross.adjust` methods) is applied **within each
-#' model**, not across the stacked rows.
+#' way. The default matches [bbmake_pairwise_table()]: Holm across every
+#' comparison **within each model**, not across the stacked rows. A
+#' message reports that count, for example
+#' `Holm across 4 comparisons within each model`.
 #'
 #' @param models A **named** list of fitted models (e.g. `glmmTMB`, `glm`,
 #'   `lm`, `lme4::merMod`). Names are used as-is in the `Model` column.
@@ -40,18 +42,19 @@
 #'   so later factor levels are in the numerator (the usual IRR direction).
 #' @param type Passed to [emmeans::emmeans()]. Default `"response"` so count
 #'   models return IRRs rather than log-scale differences.
-#' @param adjust Multiplicity adjustment passed to [emmeans::contrast()]
-#'   (the same argument as `pairs(..., adjust = )`). Default `"tukey"`,
-#'   matching emmeans pairwise. Common values: `"tukey"`, `"bonferroni"`,
-#'   `"holm"`, `"fdr"`, `"none"`. Adjustment is **within** each `by` group;
-#'   with one contrast per cell (two-level `Stim`) Tukey and none coincide.
-#'   Ignored when `cross.adjust` is not `"none"`.
-#' @param cross.adjust If not `"none"`, treat **every** pairwise test as
-#'   one family (`summary(pw, by = NULL, adjust = cross.adjust)`): all
-#'   Stim comparisons in all Sex × Diet cells together. Default `"none"`.
-#'   Use `adjust = "none", cross.adjust = "holm"`. Valid methods are
-#'   [stats::p.adjust.methods] plus `"sidak"`. Applied separately to each
-#'   model.
+#' @param adjust Within-`by`-group multiplicity adjustment passed to
+#'   [emmeans::contrast()] (the same argument as `pairs(..., adjust = )`).
+#'   Default `"none"`. Common values: `"tukey"`, `"bonferroni"`, `"holm"`,
+#'   `"fdr"`, `"none"`. Adjustment is **within** each `by` group; with one
+#'   contrast per cell (two-level `Stim`) Tukey and none coincide. Ignored
+#'   when `cross.adjust` is not `"none"`.
+#' @param cross.adjust Adjustment for **every** pairwise test in one model
+#'   as a single family (`summary(pw, by = NULL, adjust = cross.adjust)`):
+#'   all Stim comparisons in all Sex × Diet cells together. Default
+#'   `"holm"`. Set `"none"` to skip it, or
+#'   `adjust = "tukey", cross.adjust = "none"` for Tukey within each
+#'   by-group. Valid methods are [stats::p.adjust.methods] plus `"sidak"`.
+#'   Applied separately to each model, not to the stacked rows.
 #'
 #' @return A tibble with grouping columns from `by` (when present), then
 #'   `contrast`, `Model`, the test statistic (`z.ratio` or `t.ratio`),
@@ -89,7 +92,6 @@
 #' bbmake_pairwise_sensitivity_table(
 #'   mods, ~ Stim | Diet * Sex,
 #'   by = c("Sex", "Diet"),
-#'   adjust = "none",
 #'   cross.adjust = "bonferroni"
 #' )
 bbmake_pairwise_sensitivity_table <- function(
@@ -98,8 +100,8 @@ bbmake_pairwise_sensitivity_table <- function(
   by = NULL,
   reverse = TRUE,
   type = "response",
-  adjust = "tukey",
-  cross.adjust = "none"
+  adjust = "none",
+  cross.adjust = "holm"
 ) {
   models <- .bb_as_named_model_list(models)
   if (missing(specs) || is.null(specs)) {
@@ -114,7 +116,8 @@ bbmake_pairwise_sensitivity_table <- function(
   by_vars <- by
 
   for (i in seq_along(models)) {
-    piece <- .bb_pairs_for_model(
+    # One announcement for the whole table, not one copy per model.
+    piece <- suppressMessages(.bb_pairs_for_model(
       model = models[[i]],
       model_name = nms[[i]],
       specs = specs,
@@ -123,12 +126,18 @@ bbmake_pairwise_sensitivity_table <- function(
       type = type,
       adjust = adjust,
       cross.adjust = cross.adjust
-    )
+    ))
     if (i == 1L && (is.null(by_vars) || length(by_vars) == 0L)) {
       by_vars <- piece$by_vars
     }
     pieces[[i]] <- piece$data
   }
+
+  .bb_announce_sensitivity_adjustment(
+    cross.adjust,
+    vapply(pieces, nrow, integer(1)),
+    nms
+  )
 
   out <- dplyr::bind_rows(pieces)
   out[["Model"]] <- factor(out[["Model"]], levels = nms)
@@ -158,6 +167,22 @@ bbmake_pairwise_sensitivity_table <- function(
 }
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+#' @keywords internal
+#' @noRd
+.bb_announce_sensitivity_adjustment <- function(method, counts, model_names) {
+  if (is.null(method) || identical(method, "none") || length(counts) == 0L) {
+    return(invisible(NULL))
+  }
+  if (length(unique(counts)) == 1L) {
+    return(.bb_announce_adjustment(method, counts[[1]], scope = "model"))
+  }
+  detail <- paste(sprintf("%s: %d", model_names, counts), collapse = "; ")
+  message(
+    "P values adjusted with ", .bb_adjust_label(method),
+    " within each model (", detail, " comparisons)."
+  )
+}
 
 #' @keywords internal
 .bb_as_named_model_list <- function(models) {

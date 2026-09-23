@@ -22,7 +22,8 @@ if \code{pw_table} is supplied.}
 place significance brackets above the tallest CI in each panel.}
 
 \item{pw_table}{Optional output of \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}}. Built from
-\code{pw} when omitted.}
+\code{pw} when omitted, using that function's defaults (Holm across every
+comparison). Supply \code{pw_table} to keep p-values you already adjusted.}
 
 \item{model}{Optional fitted model forwarded to \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}}
 for effect sizes (e.g. Cohen's d).}

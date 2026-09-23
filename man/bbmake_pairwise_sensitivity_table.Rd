@@ -10,8 +10,8 @@ bbmake_pairwise_sensitivity_table(
   by = NULL,
   reverse = TRUE,
   type = "response",
-  adjust = "tukey",
-  cross.adjust = "none"
+  adjust = "none",
+  cross.adjust = "holm"
 )
 }
 \arguments{
@@ -32,19 +32,20 @@ so later factor levels are in the numerator (the usual IRR direction).}
 \item{type}{Passed to \code{\link[emmeans:emmeans]{emmeans::emmeans()}}. Default \code{"response"} so count
 models return IRRs rather than log-scale differences.}
 
-\item{adjust}{Multiplicity adjustment passed to \code{\link[emmeans:contrast]{emmeans::contrast()}}
-(the same argument as \code{pairs(..., adjust = )}). Default \code{"tukey"},
-matching emmeans pairwise. Common values: \code{"tukey"}, \code{"bonferroni"},
-\code{"holm"}, \code{"fdr"}, \code{"none"}. Adjustment is \strong{within} each \code{by} group;
-with one contrast per cell (two-level \code{Stim}) Tukey and none coincide.
-Ignored when \code{cross.adjust} is not \code{"none"}.}
+\item{adjust}{Within-\code{by}-group multiplicity adjustment passed to
+\code{\link[emmeans:contrast]{emmeans::contrast()}} (the same argument as \code{pairs(..., adjust = )}).
+Default \code{"none"}. Common values: \code{"tukey"}, \code{"bonferroni"}, \code{"holm"},
+\code{"fdr"}, \code{"none"}. Adjustment is \strong{within} each \code{by} group; with one
+contrast per cell (two-level \code{Stim}) Tukey and none coincide. Ignored
+when \code{cross.adjust} is not \code{"none"}.}
 
-\item{cross.adjust}{If not \code{"none"}, treat \strong{every} pairwise test as
-one family (\code{summary(pw, by = NULL, adjust = cross.adjust)}): all
-Stim comparisons in all Sex × Diet cells together. Default \code{"none"}.
-Use \verb{adjust = "none", cross.adjust = "holm"}. Valid methods are
-\link[stats:p.adjust.methods]{stats::p.adjust.methods} plus \code{"sidak"}. Applied separately to each
-model.}
+\item{cross.adjust}{Adjustment for \strong{every} pairwise test in one model
+as a single family (\code{summary(pw, by = NULL, adjust = cross.adjust)}):
+all Stim comparisons in all Sex × Diet cells together. Default
+\code{"holm"}. Set \code{"none"} to skip it, or
+\verb{adjust = "tukey", cross.adjust = "none"} for Tukey within each
+by-group. Valid methods are \link[stats:p.adjust.methods]{stats::p.adjust.methods} plus \code{"sidak"}.
+Applied separately to each model, not to the stacked rows.}
 }
 \value{
 A tibble with grouping columns from \code{by} (when present), then
@@ -81,8 +82,10 @@ bbmake_pairwise_sensitivity_table(
 On the response scale, pairwise ratios are labelled \code{IRR} (counts,
 rates) or \verb{Odds Ratio} (binomial). Gaussian / link-scale pairs use
 \verb{Mean Difference}. Random effects are handled by emmeans in the usual
-way. Holm (or other \code{cross.adjust} methods) is applied \strong{within each
-model}, not across the stacked rows.
+way. The default matches \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}}: Holm across every
+comparison \strong{within each model}, not across the stacked rows. A
+message reports that count, for example
+\verb{Holm across 4 comparisons within each model}.
 }
 \examples{
 set.seed(1)
@@ -107,7 +110,6 @@ bbmake_pairwise_sensitivity_table(
 bbmake_pairwise_sensitivity_table(
   mods, ~ Stim | Diet * Sex,
   by = c("Sex", "Diet"),
-  adjust = "none",
   cross.adjust = "bonferroni"
 )
 }

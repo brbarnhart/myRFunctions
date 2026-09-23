@@ -4,7 +4,7 @@
 \alias{bbmake_pairwise_table}
 \title{Create pairwise comparison table (preserves by= grouping + always cleans rowid)}
 \usage{
-bbmake_pairwise_table(pw, model = NULL, adjust = NULL, cross.adjust = "none")
+bbmake_pairwise_table(pw, model = NULL, adjust = "none", cross.adjust = "holm")
 }
 \arguments{
 \item{pw}{An \code{emmGrid} object (output from \code{pairs(emm)})}
@@ -12,17 +12,17 @@ bbmake_pairwise_table(pw, model = NULL, adjust = NULL, cross.adjust = "none")
 \item{model}{Original fitted model (optional). Recovered from \code{pw} when
 possible; used for Gaussian Cohen's d.}
 
-\item{adjust}{Optional within-\code{by}-group multiplicity adjustment passed
-to \code{\link[emmeans:summary.emmGrid]{emmeans::summary.emmGrid()}}. \code{NULL} (the default) keeps the
+\item{adjust}{Within-\code{by}-group multiplicity adjustment passed to
+\code{\link[emmeans:summary.emmGrid]{emmeans::summary.emmGrid()}}. Default \code{"none"}. \code{NULL} keeps the
 adjustment already stored on \code{pw} (e.g. from \code{pairs(..., adjust = )}).
 Ignored when \code{cross.adjust} is not \code{"none"}.}
 
-\item{cross.adjust}{If not \code{"none"}, treat \strong{every} pairwise test in
+\item{cross.adjust}{Adjustment applied to \strong{every} pairwise test in
 \code{pw} as one family: \code{summary(pw, by = NULL, adjust = cross.adjust)}.
 That is the total-number-of-comparisons correction (e.g. 4 Sex × Diet
-cells, or 6 tests from 3-level Stim × 2 Groups). Default \code{"none"}.
-This is \emph{not} emmeans' own \code{cross.adjust} argument, which only
-adjusts matching contrasts across by-groups.}
+cells, or 6 tests from 3-level Stim × 2 Groups). Default \code{"holm"}.
+Set \code{"none"} to skip it. This is \emph{not} emmeans' own \code{cross.adjust}
+argument, which only adjusts matching contrasts across by-groups.}
 }
 \value{
 A tibble with grouping columns (when present), then \code{contrast},
@@ -33,7 +33,10 @@ Values are left at full precision; format them with
 \code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}}.
 }
 \description{
-Create pairwise comparison table (preserves by= grouping + always cleans rowid)
+By default every comparison in \code{pw} is one family and p-values are
+adjusted with Holm (\code{adjust = "none"}, \code{cross.adjust = "holm"}). A
+message reports the method and how many comparisons that covers, for
+example \verb{Holm across 6 comparisons}.
 }
 \seealso{
 \code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}} to print this tibble as a flextable

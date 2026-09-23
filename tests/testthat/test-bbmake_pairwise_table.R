@@ -99,6 +99,32 @@ test_that("bbmake_pairwise_table forwards cross.adjust to summary()", {
   expect_equal(sort(holm$p.value), sort(expected$p.value))
 })
 
+test_that("default adjustment is Holm across every comparison", {
+  skip_if_not_installed("emmeans")
+
+  set.seed(1)
+  dat <- expand.grid(
+    Sex  = factor(c("F", "M")),
+    Stim = factor(c("Cont", "Opto")),
+    Diet = factor(c("Chow", "HFD")),
+    id   = 1:8
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  mod <- glm(y ~ Sex * Stim * Diet, data = dat, family = poisson)
+  emm <- emmeans(mod, ~ Stim | Diet * Sex, type = "response")
+  pw  <- pairs(emm, reverse = TRUE, adjust = "tukey")
+  expected <- as.data.frame(summary(
+    pw, infer = c(TRUE, TRUE), by = NULL, adjust = "holm"
+  ))
+
+  expect_message(
+    tab <- bbmake_pairwise_table(pw),
+    "Holm across 4 comparisons"
+  )
+  expect_equal(sort(tab$p.value), sort(expected$p.value))
+  expect_silent(bbmake_pairwise_table(pw, cross.adjust = "none"))
+})
+
 # ==================================================================
 # glmmTMB count models - type = "response"
 # ==================================================================

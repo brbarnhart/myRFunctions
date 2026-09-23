@@ -38,7 +38,10 @@ test_that("bbmake_pairwise_plot returns a ggplot with auto pairs + facets", {
   skip_if_not_installed("ggpubr")
 
   s <- setup_plot_data()
-  p <- bbmake_pairwise_plot(s$emm)
+  expect_message(
+    p <- bbmake_pairwise_plot(s$emm),
+    "Holm across 6 comparisons"
+  )
 
   expect_s3_class(p, "ggplot")
   expect_true(inherits(p, "gg"))

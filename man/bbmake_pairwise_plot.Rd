@@ -12,8 +12,8 @@ bbmake_pairwise_plot(
   pw_table = NULL,
   model = NULL,
   reverse = TRUE,
-  adjust = "tukey",
-  cross.adjust = "none",
+  adjust = "none",
+  cross.adjust = "holm",
   connect = TRUE,
   hide.ns = FALSE,
   y.adjust = 0,
@@ -60,14 +60,14 @@ later factor levels are in the numerator. Ignored when \code{pw} or
 \code{pw_table} is supplied.}
 
 \item{adjust}{Within-\code{by}-group multiplicity adjustment used when \code{pw}
-is computed from \code{emm}. Default \code{"tukey"}. Ignored when \code{pw} or
+is computed from \code{emm}. Default \code{"none"}. Ignored when \code{pw} or
 \code{pw_table} is supplied, and ignored when \code{cross.adjust} is not \code{"none"}.}
 
-\item{cross.adjust}{If not \code{"none"}, Holm/Bonferroni/etc. \strong{all}
-pairwise tests on the plot as one family (total number of comparisons:
-every Stim pair in every Sex × Diet cell). Default \code{"none"}. Use
-\verb{adjust = "none", cross.adjust = "holm"}. Ignored when \code{pw_table} is
-supplied.}
+\item{cross.adjust}{Adjustment for \strong{all} pairwise tests on the plot
+as one family (every Stim pair in every Sex × Diet cell). Default
+\code{"holm"}. Set \code{"none"} for no family-wide correction, or
+\verb{adjust = "tukey", cross.adjust = "none"} for Tukey within each
+by-group. Ignored when \code{pw_table} is supplied.}
 
 \item{connect}{If \code{TRUE}, draw lines connecting points within each panel
 along \code{x} (grouped by by-variables).}
@@ -127,6 +127,11 @@ error bars, optional connecting lines, faceting by by-variables,
 significance brackets, and a single effect-size annotation per panel.
 }
 \details{
+P-values default to Holm across every pairwise test
+(\code{adjust = "none"}, \code{cross.adjust = "holm"}). The same message as
+\code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}} reports the count, for example
+\verb{Holm across 6 comparisons}. A prebuilt \code{pw_table} is used as-is.
+
 For custom layouts, call the helpers yourself and add intervals /
 brackets with \code{\link[=bb_add_errorbar]{bb_add_errorbar()}} and \code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.
 }
@@ -137,10 +142,14 @@ emm <- emmeans(mod, ~ Stim | Diet * Sex, type = "response")
 bbmake_pairwise_plot(emm) +
   labs(x = "Stimulation", y = "Breakpoint (active pokes)")
 
-# Holm every pairwise test as one family (all Sex × Diet cells)
-bbmake_pairwise_plot(emm, adjust = "none", cross.adjust = "holm")
+# Unadjusted p values
+bbmake_pairwise_plot(emm, cross.adjust = "none")
 
-# Custom pairs still work
+# Tukey within each by-group
+bbmake_pairwise_plot(emm, adjust = "tukey", cross.adjust = "none")
+
+# Custom pairs still work. The default Holm adjustment is applied
+# unless cross.adjust = "none" or pw_table is supplied.
 bbmake_pairwise_plot(emm, pw = pairs(emm, reverse = TRUE, adjust = "tukey"))
 
 # Extra top padding (multiplicative c(bottom, top))
