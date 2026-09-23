@@ -18,7 +18,9 @@
 #'   the test statistic (`z.ratio` or `t.ratio`), `df` (when present), the
 #'   effect (`IRR`, `Odds Ratio`, or `Mean Difference`), `SE`, `lower.CL`,
 #'   `upper.CL`, and `p.value`. Gaussian tables may also include Cohen's `d`.
-#'   Values are left at full precision for downstream formatting.
+#'   Values are left at full precision; format them with
+#'   [bbnice_pairwise_table()].
+#' @seealso [bbnice_pairwise_table()] to print this tibble as a flextable
 #' @export
 bbmake_pairwise_table <- function(
   pw,

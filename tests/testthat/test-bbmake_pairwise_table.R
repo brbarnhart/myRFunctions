@@ -162,4 +162,9 @@ test_that("bbmake_pairwise_table output works with bbnice_pairwise_table and has
   expect_true(!is.unsorted(unsorted_p),
               info = paste("p.value not sorted ascending. First few p-values:",
                            paste(head(unsorted_p, 6), collapse = ", ")))
+
+  ft <- bbnice_pairwise_table(tab)
+  stat <- if ("z.ratio" %in% names(tab)) "z" else "t"
+  expect_s3_class(ft, "flextable")
+  expect_equal(ft$col_keys, c("Contrast", stat, "IRR", "95% CI", "p"))
 })

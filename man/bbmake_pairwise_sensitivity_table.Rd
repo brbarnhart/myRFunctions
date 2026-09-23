@@ -52,7 +52,8 @@ A tibble with grouping columns from \code{by} (when present), then
 \code{df} (when present), the effect (\code{IRR}, \verb{Odds Ratio}, or
 \verb{Mean Difference}), \code{SE}, \code{lower.CL}, \code{upper.CL}, and \code{p.value}.
 Rows are ordered by grouping variables, contrast, then model list
-order. Values are left at full precision for downstream formatting.
+order. Values are left at full precision; format them with
+\code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}}.
 }
 \description{
 Runs the same \code{\link[emmeans:emmeans]{emmeans::emmeans()}} pairwise contrast on each fitted
@@ -111,6 +112,7 @@ bbmake_pairwise_sensitivity_table(
 )
 }
 \seealso{
+\code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}} to print this tibble as a flextable,
 \code{\link[=bbmake_lrt_sensitivity_table]{bbmake_lrt_sensitivity_table()}} for Type II LRTs across the
 same models, \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}} for a single-model pairwise
 table, \code{\link[=bbmake_lrt_table]{bbmake_lrt_table()}} for a single-model LRT

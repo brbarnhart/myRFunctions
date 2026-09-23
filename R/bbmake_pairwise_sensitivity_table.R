@@ -58,9 +58,11 @@
 #'   `df` (when present), the effect (`IRR`, `Odds Ratio`, or
 #'   `Mean Difference`), `SE`, `lower.CL`, `upper.CL`, and `p.value`.
 #'   Rows are ordered by grouping variables, contrast, then model list
-#'   order. Values are left at full precision for downstream formatting.
+#'   order. Values are left at full precision; format them with
+#'   [bbnice_pairwise_table()].
 #'
-#' @seealso [bbmake_lrt_sensitivity_table()] for Type II LRTs across the
+#' @seealso [bbnice_pairwise_table()] to print this tibble as a flextable,
+#'   [bbmake_lrt_sensitivity_table()] for Type II LRTs across the
 #'   same models, [bbmake_pairwise_table()] for a single-model pairwise
 #'   table, [bbmake_lrt_table()] for a single-model LRT
 #' @export

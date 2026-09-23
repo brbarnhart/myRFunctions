@@ -603,7 +603,8 @@ bbmake_pairwise_sensitivity_table(
   mods_sens,
   ~ Stim | Diet * Sex,
   by = c("Sex", "Diet")
-)
+) |>
+  bbnice_pairwise_table()
 ```
 
 ### Pairwise, Bonferroni across cells
@@ -617,7 +618,8 @@ bbmake_pairwise_sensitivity_table(
   by = c("Sex", "Diet"),
   adjust = "none",
   cross.adjust = "bonferroni"
-)
+) |>
+  bbnice_pairwise_table()
 ```
 
 ### Type II LRTs across the same models
