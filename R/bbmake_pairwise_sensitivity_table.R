@@ -30,6 +30,11 @@
 #' message reports that count, for example
 #' `Holm across 4 comparisons within each model`.
 #'
+#' `interaction = "pairwise"` (or `"revpairwise"`) contrasts the factors
+#' with each other instead of running a simple pairwise test. Factors
+#' named in `by` are held out of that interaction. `reverse` does not
+#' change an `interaction` value you supply.
+#'
 #' @param models A **named** list of fitted models (e.g. `glmmTMB`, `glm`,
 #'   `lm`, `lme4::merMod`). Names are used as-is in the `Model` column.
 #' @param specs An emmeans specs formula, passed to [emmeans::emmeans()]
@@ -40,6 +45,8 @@
 #'   both pairing and column order.
 #' @param reverse If `TRUE` (the default), reverse the contrast direction
 #'   so later factor levels are in the numerator (the usual IRR direction).
+#'   Ignored when `interaction` is set; pass `interaction = "revpairwise"`
+#'   for that direction.
 #' @param type Passed to [emmeans::emmeans()]. Default `"response"` so count
 #'   models return IRRs rather than log-scale differences.
 #' @param adjust Within-`by`-group multiplicity adjustment passed to
@@ -55,13 +62,21 @@
 #'   `adjust = "tukey", cross.adjust = "none"` for Tukey within each
 #'   by-group. Valid methods are [stats::p.adjust.methods] plus `"sidak"`.
 #'   Applied separately to each model, not to the stacked rows.
+#' @param interaction `NULL` (the default) runs a simple pairwise contrast.
+#'   `"pairwise"` or `"revpairwise"` is passed to [emmeans::contrast()]
+#'   as `interaction`. Factors named in `by` are held out; the remaining
+#'   factors are contrasted with each other. On `~ Stim | Diet * Sex`,
+#'   `by = "Sex"` and `interaction = "pairwise"` contrasts Stim and Diet
+#'   within Sex. `by = NULL` still uses every variable after `|`, so that
+#'   formula would contrast only Stim and keep Diet as a grouping column.
 #'
 #' @return A tibble with grouping columns from `by` (when present), then
-#'   `contrast`, `Model`, the test statistic (`z.ratio` or `t.ratio`),
-#'   `df` (when present), the effect (`IRR`, `Odds Ratio`, or
-#'   `Mean Difference`), `SE`, `lower.CL`, `upper.CL`, and `p.value`.
-#'   Rows are ordered by grouping variables, contrast, then model list
-#'   order. Values are left at full precision; format them with
+#'   `contrast` or the interaction columns (`Stim_pairwise`,
+#'   `Diet_pairwise`, and so on), `Model`, the test statistic (`z.ratio`
+#'   or `t.ratio`), `df` (when present), the effect (`IRR`, `Odds Ratio`,
+#'   or `Mean Difference`), `SE`, `lower.CL`, `upper.CL`, and `p.value`.
+#'   Rows are ordered by grouping variables, the contrast columns, then
+#'   model list order. Values are left at full precision; format them with
 #'   [bbnice_pairwise_table()].
 #'
 #' @seealso [bbnice_pairwise_table()] to print this tibble as a flextable,
@@ -94,6 +109,13 @@
 #'   by = c("Sex", "Diet"),
 #'   cross.adjust = "bonferroni"
 #' )
+#' bbmake_pairwise_sensitivity_table(
+#'   mods,
+#'   ~ Stim | Diet * Sex,
+#'   by = "Sex",
+#'   interaction = "pairwise"
+#' ) |>
+#'   bbnice_pairwise_table()
 bbmake_pairwise_sensitivity_table <- function(
   models,
   specs,
@@ -101,7 +123,8 @@ bbmake_pairwise_sensitivity_table <- function(
   reverse = TRUE,
   type = "response",
   adjust = "none",
-  cross.adjust = "holm"
+  cross.adjust = "holm",
+  interaction = NULL
 ) {
   models <- .bb_as_named_model_list(models)
   if (missing(specs) || is.null(specs)) {
@@ -110,6 +133,7 @@ bbmake_pairwise_sensitivity_table <- function(
       call. = FALSE
     )
   }
+  interaction <- .bb_as_interaction(interaction)
 
   nms <- names(models)
   pieces <- vector("list", length(models))
@@ -125,7 +149,8 @@ bbmake_pairwise_sensitivity_table <- function(
       reverse = reverse,
       type = type,
       adjust = adjust,
-      cross.adjust = cross.adjust
+      cross.adjust = cross.adjust,
+      interaction = interaction
     ))
     if (i == 1L && (is.null(by_vars) || length(by_vars) == 0L)) {
       by_vars <- piece$by_vars
@@ -142,9 +167,13 @@ bbmake_pairwise_sensitivity_table <- function(
   out <- dplyr::bind_rows(pieces)
   out[["Model"]] <- factor(out[["Model"]], levels = nms)
 
+  interaction_cols <- names(out)[.bb_is_interaction_header(names(out))]
+  interaction_cols <- setdiff(interaction_cols, c(by_vars, "Model"))
+
   keep <- c(
     by_vars,
     "contrast",
+    interaction_cols,
     "Model",
     "z.ratio",
     "t.ratio",
@@ -162,11 +191,32 @@ bbmake_pairwise_sensitivity_table <- function(
 
   dplyr::arrange(
     tibble::as_tibble(out),
-    dplyr::across(dplyr::any_of(c(by_vars, "contrast", "Model")))
+    dplyr::across(dplyr::any_of(c(
+      by_vars, "contrast", interaction_cols, "Model"
+    )))
   )
 }
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+#' @keywords internal
+#' @noRd
+.bb_as_interaction <- function(interaction) {
+  if (is.null(interaction)) {
+    return(NULL)
+  }
+  ok <- is.character(interaction) &&
+    length(interaction) == 1L &&
+    !is.na(interaction) &&
+    interaction %in% c("pairwise", "revpairwise")
+  if (!ok) {
+    stop(
+      "`interaction` must be NULL, \"pairwise\", or \"revpairwise\".",
+      call. = FALSE
+    )
+  }
+  interaction
+}
 
 #' @keywords internal
 #' @noRd
@@ -224,7 +274,8 @@ bbmake_pairwise_sensitivity_table <- function(
   reverse,
   type,
   adjust,
-  cross.adjust
+  cross.adjust,
+  interaction = NULL
 ) {
   emm <- tryCatch(
     emmeans::emmeans(model, specs = specs, type = type),
@@ -242,12 +293,27 @@ bbmake_pairwise_sensitivity_table <- function(
     by_use <- emm@misc$by.vars
   }
 
-  method <- if (isTRUE(reverse)) "revpairwise" else "pairwise"
   pw <- tryCatch(
-    if (is.null(by_use) || length(by_use) == 0L) {
-      emmeans::contrast(emm, method = method, adjust = adjust)
-    } else {
-      emmeans::contrast(emm, method = method, by = by_use, adjust = adjust)
+    {
+      if (!is.null(interaction)) {
+        if (is.null(by_use) || length(by_use) == 0L) {
+          emmeans::contrast(emm, interaction = interaction, adjust = adjust)
+        } else {
+          emmeans::contrast(
+            emm,
+            interaction = interaction,
+            by = by_use,
+            adjust = adjust
+          )
+        }
+      } else {
+        method <- if (isTRUE(reverse)) "revpairwise" else "pairwise"
+        if (is.null(by_use) || length(by_use) == 0L) {
+          emmeans::contrast(emm, method = method, adjust = adjust)
+        } else {
+          emmeans::contrast(emm, method = method, by = by_use, adjust = adjust)
+        }
+      }
     },
     error = function(e) {
       stop(

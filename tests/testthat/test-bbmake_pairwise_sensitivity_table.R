@@ -340,3 +340,124 @@ test_that("glmmTMB nbinom2 models return IRR contrasts", {
   expect_true(all(tab$IRR > 0))
   expect_equal(levels(tab$Model), c("Full", "Reduced"))
 })
+
+# ==================================================================
+# Interaction contrasts
+# ==================================================================
+
+setup_interaction_models <- function() {
+  set.seed(1)
+  dat <- expand.grid(
+    Sex = factor(c("F", "M")),
+    Stim = factor(c("A", "B", "C")),
+    Diet = factor(c("C", "H")),
+    id = factor(1:6)
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  list(
+    Full = glm(y ~ Sex * Stim * Diet, data = dat, family = poisson),
+    Reduced = glm(
+      y ~ Sex * Stim * Diet,
+      data = dat[dat$id != "1", ],
+      family = poisson
+    )
+  )
+}
+
+holm_interaction_p <- function(model) {
+  pw <- emmeans(model, ~ Stim | Diet * Sex, type = "response") |>
+    contrast(interaction = "pairwise", by = "Sex")
+  as.data.frame(summary(
+    pw,
+    infer = c(TRUE, TRUE),
+    by = NULL,
+    adjust = "holm"
+  ))$p.value
+}
+
+test_that("interaction = pairwise stacks one column per factor", {
+  mods <- setup_interaction_models()
+  expect_message(
+    tab <- bbmake_pairwise_sensitivity_table(
+      mods,
+      ~ Stim | Diet * Sex,
+      by = "Sex",
+      interaction = "pairwise"
+    ),
+    "Holm across 6 comparisons within each model"
+  )
+
+  expect_equal(
+    names(tab),
+    c(
+      "Sex", "Stim_pairwise", "Diet_pairwise", "Model", "z.ratio", "df",
+      "IRR", "SE", "lower.CL", "upper.CL", "p.value"
+    )
+  )
+  expect_false("Stim_revpairwise" %in% names(tab))
+  expect_equal(levels(tab$Model), c("Full", "Reduced"))
+  expect_equal(sort(tab$p.value[tab$Model == "Full"]), sort(holm_interaction_p(mods$Full)))
+  expect_equal(
+    sort(tab$p.value[tab$Model == "Reduced"]),
+    sort(holm_interaction_p(mods$Reduced))
+  )
+
+  keys <- tab[c("Sex", "Stim_pairwise", "Diet_pairwise", "Model")]
+  expect_equal(
+    keys,
+    dplyr::arrange(keys, Sex, Stim_pairwise, Diet_pairwise, Model)
+  )
+  expect_equal(as.character(tab$Model), rep(c("Full", "Reduced"), nrow(tab) / 2))
+  expect_equal(rle(as.character(tab$Sex))$lengths, c(6, 6))
+})
+
+test_that("interaction = revpairwise keeps the revpairwise columns", {
+  s <- setup_sensitivity_models()
+  mods <- list(Full = s$Full, Reduced = s$Reduced)
+  tab <- bbmake_pairwise_sensitivity_table(
+    mods,
+    ~ Stim | Diet * Sex,
+    by = "Sex",
+    interaction = "revpairwise",
+    cross.adjust = "none"
+  )
+  expect_true(all(c("Stim_revpairwise", "Diet_revpairwise") %in% names(tab)))
+  expect_false("Stim_pairwise" %in% names(tab))
+  expect_false("contrast" %in% names(tab))
+})
+
+test_that("interaction rejects methods other than pairwise", {
+  s <- setup_sensitivity_models()
+  expect_error(
+    bbmake_pairwise_sensitivity_table(
+      list(Full = s$Full, Reduced = s$Reduced),
+      ~ Stim | Sex,
+      interaction = "consec"
+    ),
+    "pairwise"
+  )
+})
+
+test_that("interaction sensitivity tables pipe into bbnice_pairwise_table", {
+  skip_if_not_installed("flextable")
+  skip_if_not_installed("rempsyc")
+
+  mods <- setup_interaction_models()
+  ft <- suppressMessages(bbmake_pairwise_sensitivity_table(
+    mods,
+    ~ Stim | Diet * Sex,
+    by = "Sex",
+    interaction = "pairwise"
+  )) |>
+    bbnice_pairwise_table()
+
+  expect_equal(
+    ft$col_keys,
+    c(
+      "Sex", "Stim Pairwise", "Diet Pairwise", "Model",
+      "z", "IRR", "95% CI", "p"
+    )
+  )
+  spans <- as.numeric(ft$body$spans$columns[, match("Sex", ft$col_keys)])
+  expect_equal(spans, c(6, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0))
+})

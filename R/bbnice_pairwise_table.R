@@ -1,41 +1,61 @@
 #' Format a pairwise comparison table
 #'
 #' Builds a [flextable::flextable()] from the tibble returned by
-#' [bbmake_pairwise_table()] or [bbmake_pairwise_sensitivity_table()].
-#' Value formatting follows [rempsyc::nice_table()]: estimates use two
-#' decimals, `p.value` is drawn with [rempsyc::format_p()] (no leading
-#' zero, `< .001` below that cutoff, significance stars), and the
-#' confidence limits become one `[lower, upper]` column. That interval
-#' stays where `lower.CL` and `upper.CL` were. Every other column stays
-#' in the order those functions returned it.
+#' [bbmake_pairwise_table()] or [bbmake_pairwise_sensitivity_table()],
+#' or from `as.data.frame()` on an emmeans interaction contrast
+#' (`contrast(interaction = "pairwise")`). Value formatting follows
+#' [rempsyc::nice_table()]: estimates use two decimals, `p.value` is
+#' drawn with [rempsyc::format_p()] (no leading zero, `< .001` below
+#' that cutoff, significance stars), and the confidence limits become
+#' one `[lower, upper]` column. That interval stays where `lower.CL`
+#' and `upper.CL` were. Every other column stays in the input order.
 #'
 #' Headers are relabelled for the paper table: `contrast` becomes
-#' `Contrast`, `z.ratio` and `t.ratio` become italic *z* and *t*, and
-#' `p.value` becomes italic *p*. `SE`, `df`, and Cohen's `d` keep their
-#' names and are italicised when those columns are still present.
-#' Columns to the left of `Contrast` (the emmeans by-variables) are
-#' merged vertically, then [flextable::theme_vanilla()] sets the borders,
-#' bold header, and alignment. The result is a flextable, so
-#' [flextable::save_as_docx()] and further flextable edits still apply.
-#' The interval header is `95% CI`, which is emmeans' default level.
+#' `Contrast`, and each emmeans interaction column is labelled the same
+#' way (`Stim_pairwise` becomes `Stim Pairwise`, `Stim_revpairwise`
+#' becomes `Stim Revpairwise`; the factor name is kept as-is).
+#' `z.ratio` and `t.ratio` become italic *z* and *t*, and `p.value`
+#' becomes italic *p*. A raw emmeans effect column is renamed the same
+#' way the table builders do: `ratio` to `IRR`, `odds.ratio` to
+#' `Odds Ratio`, and `estimate` to `Mean Difference`. `SE`, `df`, and
+#' Cohen's `d` keep their names and are italicised when those columns
+#' are still present. Columns to the left of the first contrast column
+#' (`Contrast`, or otherwise the first `Pairwise` / `Revpairwise`
+#' header) are merged vertically, then [flextable::theme_vanilla()]
+#' sets the borders, bold header, and alignment. The result is a
+#' flextable, so [flextable::save_as_docx()] and further flextable edits
+#' still apply. The interval header is `95% CI`, which is emmeans'
+#' default level.
 #'
-#' @param data A data frame from [bbmake_pairwise_table()] or
-#'   [bbmake_pairwise_sensitivity_table()].
+#' `as.data.frame()` on an interaction contrast puts the
+#' `factor_pairwise` columns before the `by` variable. Move grouping
+#' columns to the left, as in the example, when those should merge.
+#' [flextable::merge_v()] only joins consecutive repeats, so arrange
+#' those columns first.
+#'
+#' @param data A data frame from [bbmake_pairwise_table()],
+#'   [bbmake_pairwise_sensitivity_table()], or `as.data.frame()` on an
+#'   emmeans interaction contrast. The frame needs `p.value` and either
+#'   `contrast` or at least one column ending in `_pairwise` or
+#'   `_revpairwise` (for example `Stim_pairwise` and `Diet_pairwise`).
 #' @param drop Columns to remove before formatting, matched to the input
 #'   names. Default `c("SE", "df")`. `NULL` or `character()` keeps every
 #'   column. Names that are not in `data` are ignored.
 #' @param merge Columns to merge vertically where the same value repeats
 #'   in consecutive rows ([flextable::merge_v()]). `TRUE` (default) merges
-#'   every column to the left of `contrast` (the emmeans by-variables:
-#'   `Sex`, `Diet`, and so on). `FALSE` does not merge. A character vector
-#'   names specific columns, using either the input names (`"contrast"`)
-#'   or the printed names (`"Contrast"`).
+#'   every column to the left of the first contrast column: `contrast`,
+#'   or otherwise the first `factor_pairwise` / `factor_revpairwise`
+#'   column (the emmeans by-variables: `Sex`, `Diet`, and so on).
+#'   `FALSE` does not merge. A character vector names specific columns,
+#'   using either the input names (`"contrast"`, `"Stim_pairwise"`) or
+#'   the printed names (`"Contrast"`, `"Stim Pairwise"`).
 #' @param stars If `TRUE` (default), append significance stars to *p*
 #'   values (`*` `< .05`, `**` `< .01`, `***` `< .001`).
 #'
-#' @return A `flextable`. Grouping columns, `Contrast`, `Model`, the test
-#'   statistic, the effect, `95% CI`, and `p` stay in the input order,
-#'   with `SE` and `df` removed when `drop` says so.
+#' @return A `flextable`. Grouping columns, the contrast columns
+#'   (`Contrast`, or `Stim Pairwise` and `Diet Pairwise`, and so on),
+#'   `Model`, the test statistic, the effect, `95% CI`, and `p` stay in
+#'   the input order, with `SE` and `df` removed when `drop` says so.
 #'
 #' @seealso [bbmake_pairwise_table()], [bbmake_pairwise_sensitivity_table()],
 #'   [rempsyc::nice_table()], [flextable::theme_vanilla()]
@@ -62,6 +82,37 @@
 #'   adjust = "none",
 #'   cross.adjust = "holm"
 #' ) |>
+#'   bbnice_pairwise_table()
+#'
+#' # Interaction contrast: one column per factor, rather than `contrast`.
+#' # select() puts Sex on the left so the by-variable merges.
+#' set.seed(1)
+#' dat <- expand.grid(
+#'   Sex = factor(c("F", "M")),
+#'   Stim = factor(c("A", "B")),
+#'   Diet = factor(c("C", "H")),
+#'   id = 1:6
+#' )
+#' dat$y <- rpois(nrow(dat), lambda = 5)
+#' mods <- list(
+#'   Full = glm(y ~ Sex * Stim * Diet, data = dat, family = poisson),
+#'   Reduced = glm(
+#'     y ~ Sex * Stim * Diet,
+#'     data = dat[dat$id != "1", ],
+#'     family = poisson
+#'   )
+#' )
+#' pairs <- Map(function(model, model_name) {
+#'   emmeans::emmeans(model, ~ Stim | Diet * Sex, type = "response") |>
+#'     emmeans::contrast(interaction = "pairwise", by = "Sex") |>
+#'     as.data.frame() |>
+#'     dplyr::mutate(Model = model_name)
+#' }, mods, names(mods))
+#' dplyr::bind_rows(pairs) |>
+#'   dplyr::select(
+#'     Sex, Stim_pairwise, Diet_pairwise, Model, ratio, p.value
+#'   ) |>
+#'   dplyr::arrange(Sex) |>
 #'   bbnice_pairwise_table()
 bbnice_pairwise_table <- function(
   data,
@@ -94,16 +145,27 @@ bbnice_pairwise_table <- function(
 .bb_as_pairwise_table <- function(data) {
   if (!is.data.frame(data)) {
     stop(
-      "`data` must be a data frame from bbmake_pairwise_table() or ",
-      "bbmake_pairwise_sensitivity_table().",
+      "`data` must be a data frame from bbmake_pairwise_table(), ",
+      "bbmake_pairwise_sensitivity_table(), or an emmeans interaction ",
+      "contrast.",
       call. = FALSE
     )
   }
   data <- tibble::as_tibble(data)
-  missing <- setdiff(c("contrast", "p.value"), names(data))
-  if (length(missing)) {
+  has_p <- "p.value" %in% names(data)
+  has_contrast <- "contrast" %in% names(data) ||
+    any(.bb_is_interaction_header(names(data)))
+  if (!has_p || !has_contrast) {
+    missing <- character()
+    if (!has_p) {
+      missing <- c(missing, "p.value")
+    }
+    if (!has_contrast) {
+      missing <- c(missing, "contrast or a column ending in _pairwise")
+    }
     stop(
-      "Expected a pairwise table with columns contrast and p.value. Missing: ",
+      "Expected a pairwise table with p.value and either contrast or a ",
+      "column ending in _pairwise. Missing: ",
       paste(missing, collapse = ", "),
       ". Columns were: ",
       paste(names(data), collapse = ", "),
@@ -111,6 +173,24 @@ bbnice_pairwise_table <- function(
     )
   }
   data
+}
+
+#' @keywords internal
+#' @noRd
+.bb_is_interaction_header <- function(name) {
+  grepl("_(revpairwise|pairwise)$", name)
+}
+
+#' @keywords internal
+#' @noRd
+.bb_pretty_pairwise_header <- function(name) {
+  # _revpairwise is labelled Revpairwise, not Pairwise.
+  # Underscores in the factor name stay: Food_Cue_pairwise -> Food_Cue Pairwise.
+  rev <- grepl("_revpairwise$", name)
+  pw <- !rev & grepl("_pairwise$", name)
+  name[rev] <- paste(sub("_revpairwise$", "", name[rev]), "Revpairwise")
+  name[pw] <- paste(sub("_pairwise$", "", name[pw]), "Pairwise")
+  name
 }
 
 #' @keywords internal
@@ -147,12 +227,16 @@ bbnice_pairwise_table <- function(
     contrast = "Contrast",
     z.ratio = "z",
     t.ratio = "t",
-    p.value = "p"
+    p.value = "p",
+    ratio = "IRR",
+    odds.ratio = "Odds Ratio",
+    estimate = "Mean Difference"
   )
   nm <- names(data)
   idx <- match(names(map), nm)
   ok <- !is.na(idx)
   nm[idx[ok]] <- unname(map[ok])
+  nm <- .bb_pretty_pairwise_header(nm)
   if (anyDuplicated(nm)) {
     stop(
       "Header formatting produced duplicate column names: ",
@@ -176,10 +260,13 @@ bbnice_pairwise_table <- function(
     t.ratio = "t",
     p.value = "p",
     lower.CL = "95% CI",
-    upper.CL = "95% CI"
+    upper.CL = "95% CI",
+    ratio = "IRR",
+    odds.ratio = "Odds Ratio",
+    estimate = "Mean Difference"
   )
   if (isTRUE(merge)) {
-    pos <- match("Contrast", names_now)
+    pos <- .bb_contrast_anchor(names_now)
     if (is.na(pos) || pos <= 1L) {
       return(character())
     }
@@ -197,7 +284,11 @@ bbnice_pairwise_table <- function(
     )
   }
   resolved <- vapply(merge, function(col) {
-    if (col %in% names(aliases)) unname(aliases[[col]]) else col
+    if (col %in% names(aliases)) {
+      unname(aliases[[col]])
+    } else {
+      .bb_pretty_pairwise_header(col)
+    }
   }, character(1), USE.NAMES = FALSE)
   missing <- setdiff(resolved, names_now)
   if (length(missing)) {
@@ -210,6 +301,19 @@ bbnice_pairwise_table <- function(
     )
   }
   unique(resolved)
+}
+
+#' @keywords internal
+#' @noRd
+.bb_contrast_anchor <- function(names_now) {
+  # Contrast wins when both shapes are present. Otherwise the leftmost
+  # Pairwise or Revpairwise header is the anchor.
+  pos <- match("Contrast", names_now)
+  if (!is.na(pos)) {
+    return(pos)
+  }
+  hit <- grep(" (Revpairwise|Pairwise)$", names_now)
+  if (length(hit)) hit[[1L]] else NA_integer_
 }
 
 #' @keywords internal

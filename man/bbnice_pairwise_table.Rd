@@ -7,8 +7,11 @@
 bbnice_pairwise_table(data, drop = c("SE", "df"), merge = TRUE, stars = TRUE)
 }
 \arguments{
-\item{data}{A data frame from \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}} or
-\code{\link[=bbmake_pairwise_sensitivity_table]{bbmake_pairwise_sensitivity_table()}}.}
+\item{data}{A data frame from \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}},
+\code{\link[=bbmake_pairwise_sensitivity_table]{bbmake_pairwise_sensitivity_table()}}, or \code{as.data.frame()} on an
+emmeans interaction contrast. The frame needs \code{p.value} and either
+\code{contrast} or at least one column ending in \verb{_pairwise} or
+\verb{_revpairwise} (for example \code{Stim_pairwise} and \code{Diet_pairwise}).}
 
 \item{drop}{Columns to remove before formatting, matched to the input
 names. Default \code{c("SE", "df")}. \code{NULL} or \code{character()} keeps every
@@ -16,39 +19,56 @@ column. Names that are not in \code{data} are ignored.}
 
 \item{merge}{Columns to merge vertically where the same value repeats
 in consecutive rows (\code{\link[flextable:merge_v]{flextable::merge_v()}}). \code{TRUE} (default) merges
-every column to the left of \code{contrast} (the emmeans by-variables:
-\code{Sex}, \code{Diet}, and so on). \code{FALSE} does not merge. A character vector
-names specific columns, using either the input names (\code{"contrast"})
-or the printed names (\code{"Contrast"}).}
+every column to the left of the first contrast column: \code{contrast},
+or otherwise the first \code{factor_pairwise} / \code{factor_revpairwise}
+column (the emmeans by-variables: \code{Sex}, \code{Diet}, and so on).
+\code{FALSE} does not merge. A character vector names specific columns,
+using either the input names (\code{"contrast"}, \code{"Stim_pairwise"}) or
+the printed names (\code{"Contrast"}, \code{"Stim Pairwise"}).}
 
 \item{stars}{If \code{TRUE} (default), append significance stars to \emph{p}
 values (\code{*} \verb{< .05}, \verb{**} \verb{< .01}, \verb{***} \verb{< .001}).}
 }
 \value{
-A \code{flextable}. Grouping columns, \code{Contrast}, \code{Model}, the test
-statistic, the effect, \verb{95\% CI}, and \code{p} stay in the input order,
-with \code{SE} and \code{df} removed when \code{drop} says so.
+A \code{flextable}. Grouping columns, the contrast columns
+(\code{Contrast}, or \verb{Stim Pairwise} and \verb{Diet Pairwise}, and so on),
+\code{Model}, the test statistic, the effect, \verb{95\% CI}, and \code{p} stay in
+the input order, with \code{SE} and \code{df} removed when \code{drop} says so.
 }
 \description{
 Builds a \code{\link[flextable:flextable]{flextable::flextable()}} from the tibble returned by
-\code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}} or \code{\link[=bbmake_pairwise_sensitivity_table]{bbmake_pairwise_sensitivity_table()}}.
-Value formatting follows \code{\link[rempsyc:nice_table]{rempsyc::nice_table()}}: estimates use two
-decimals, \code{p.value} is drawn with \code{\link[rempsyc:format_p]{rempsyc::format_p()}} (no leading
-zero, \verb{< .001} below that cutoff, significance stars), and the
-confidence limits become one \verb{[lower, upper]} column. That interval
-stays where \code{lower.CL} and \code{upper.CL} were. Every other column stays
-in the order those functions returned it.
+\code{\link[=bbmake_pairwise_table]{bbmake_pairwise_table()}} or \code{\link[=bbmake_pairwise_sensitivity_table]{bbmake_pairwise_sensitivity_table()}},
+or from \code{as.data.frame()} on an emmeans interaction contrast
+(\code{contrast(interaction = "pairwise")}). Value formatting follows
+\code{\link[rempsyc:nice_table]{rempsyc::nice_table()}}: estimates use two decimals, \code{p.value} is
+drawn with \code{\link[rempsyc:format_p]{rempsyc::format_p()}} (no leading zero, \verb{< .001} below
+that cutoff, significance stars), and the confidence limits become
+one \verb{[lower, upper]} column. That interval stays where \code{lower.CL}
+and \code{upper.CL} were. Every other column stays in the input order.
 }
 \details{
 Headers are relabelled for the paper table: \code{contrast} becomes
-\code{Contrast}, \code{z.ratio} and \code{t.ratio} become italic \emph{z} and \emph{t}, and
-\code{p.value} becomes italic \emph{p}. \code{SE}, \code{df}, and Cohen's \code{d} keep their
-names and are italicised when those columns are still present.
-Columns to the left of \code{Contrast} (the emmeans by-variables) are
-merged vertically, then \code{\link[flextable:theme_vanilla]{flextable::theme_vanilla()}} sets the borders,
-bold header, and alignment. The result is a flextable, so
-\code{\link[flextable:save_as_docx]{flextable::save_as_docx()}} and further flextable edits still apply.
-The interval header is \verb{95\% CI}, which is emmeans' default level.
+\code{Contrast}, and each emmeans interaction column is labelled the same
+way (\code{Stim_pairwise} becomes \verb{Stim Pairwise}, \code{Stim_revpairwise}
+becomes \verb{Stim Revpairwise}; the factor name is kept as-is).
+\code{z.ratio} and \code{t.ratio} become italic \emph{z} and \emph{t}, and \code{p.value}
+becomes italic \emph{p}. A raw emmeans effect column is renamed the same
+way the table builders do: \code{ratio} to \code{IRR}, \code{odds.ratio} to
+\verb{Odds Ratio}, and \code{estimate} to \verb{Mean Difference}. \code{SE}, \code{df}, and
+Cohen's \code{d} keep their names and are italicised when those columns
+are still present. Columns to the left of the first contrast column
+(\code{Contrast}, or otherwise the first \code{Pairwise} / \code{Revpairwise}
+header) are merged vertically, then \code{\link[flextable:theme_vanilla]{flextable::theme_vanilla()}}
+sets the borders, bold header, and alignment. The result is a
+flextable, so \code{\link[flextable:save_as_docx]{flextable::save_as_docx()}} and further flextable edits
+still apply. The interval header is \verb{95\% CI}, which is emmeans'
+default level.
+
+\code{as.data.frame()} on an interaction contrast puts the
+\code{factor_pairwise} columns before the \code{by} variable. Move grouping
+columns to the left, as in the example, when those should merge.
+\code{\link[flextable:merge_v]{flextable::merge_v()}} only joins consecutive repeats, so arrange
+those columns first.
 }
 \examples{
 set.seed(1)
@@ -72,6 +92,37 @@ bbmake_pairwise_sensitivity_table(
   adjust = "none",
   cross.adjust = "holm"
 ) |>
+  bbnice_pairwise_table()
+
+# Interaction contrast: one column per factor, rather than `contrast`.
+# select() puts Sex on the left so the by-variable merges.
+set.seed(1)
+dat <- expand.grid(
+  Sex = factor(c("F", "M")),
+  Stim = factor(c("A", "B")),
+  Diet = factor(c("C", "H")),
+  id = 1:6
+)
+dat$y <- rpois(nrow(dat), lambda = 5)
+mods <- list(
+  Full = glm(y ~ Sex * Stim * Diet, data = dat, family = poisson),
+  Reduced = glm(
+    y ~ Sex * Stim * Diet,
+    data = dat[dat$id != "1", ],
+    family = poisson
+  )
+)
+pairs <- Map(function(model, model_name) {
+  emmeans::emmeans(model, ~ Stim | Diet * Sex, type = "response") |>
+    emmeans::contrast(interaction = "pairwise", by = "Sex") |>
+    as.data.frame() |>
+    dplyr::mutate(Model = model_name)
+}, mods, names(mods))
+dplyr::bind_rows(pairs) |>
+  dplyr::select(
+    Sex, Stim_pairwise, Diet_pairwise, Model, ratio, p.value
+  ) |>
+  dplyr::arrange(Sex) |>
   bbnice_pairwise_table()
 }
 \seealso{

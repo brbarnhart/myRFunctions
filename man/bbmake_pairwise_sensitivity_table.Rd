@@ -11,7 +11,8 @@ bbmake_pairwise_sensitivity_table(
   reverse = TRUE,
   type = "response",
   adjust = "none",
-  cross.adjust = "holm"
+  cross.adjust = "holm",
+  interaction = NULL
 )
 }
 \arguments{
@@ -27,7 +28,9 @@ used. Supply an explicit order such as \code{c("Sex", "Diet")} to control
 both pairing and column order.}
 
 \item{reverse}{If \code{TRUE} (the default), reverse the contrast direction
-so later factor levels are in the numerator (the usual IRR direction).}
+so later factor levels are in the numerator (the usual IRR direction).
+Ignored when \code{interaction} is set; pass \code{interaction = "revpairwise"}
+for that direction.}
 
 \item{type}{Passed to \code{\link[emmeans:emmeans]{emmeans::emmeans()}}. Default \code{"response"} so count
 models return IRRs rather than log-scale differences.}
@@ -46,14 +49,23 @@ all Stim comparisons in all Sex × Diet cells together. Default
 \verb{adjust = "tukey", cross.adjust = "none"} for Tukey within each
 by-group. Valid methods are \link[stats:p.adjust.methods]{stats::p.adjust.methods} plus \code{"sidak"}.
 Applied separately to each model, not to the stacked rows.}
+
+\item{interaction}{\code{NULL} (the default) runs a simple pairwise contrast.
+\code{"pairwise"} or \code{"revpairwise"} is passed to \code{\link[emmeans:contrast]{emmeans::contrast()}}
+as \code{interaction}. Factors named in \code{by} are held out; the remaining
+factors are contrasted with each other. On \code{~ Stim | Diet * Sex},
+\code{by = "Sex"} and \code{interaction = "pairwise"} contrasts Stim and Diet
+within Sex. \code{by = NULL} still uses every variable after \code{|}, so that
+formula would contrast only Stim and keep Diet as a grouping column.}
 }
 \value{
 A tibble with grouping columns from \code{by} (when present), then
-\code{contrast}, \code{Model}, the test statistic (\code{z.ratio} or \code{t.ratio}),
-\code{df} (when present), the effect (\code{IRR}, \verb{Odds Ratio}, or
-\verb{Mean Difference}), \code{SE}, \code{lower.CL}, \code{upper.CL}, and \code{p.value}.
-Rows are ordered by grouping variables, contrast, then model list
-order. Values are left at full precision; format them with
+\code{contrast} or the interaction columns (\code{Stim_pairwise},
+\code{Diet_pairwise}, and so on), \code{Model}, the test statistic (\code{z.ratio}
+or \code{t.ratio}), \code{df} (when present), the effect (\code{IRR}, \verb{Odds Ratio},
+or \verb{Mean Difference}), \code{SE}, \code{lower.CL}, \code{upper.CL}, and \code{p.value}.
+Rows are ordered by grouping variables, the contrast columns, then
+model list order. Values are left at full precision; format them with
 \code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}}.
 }
 \description{
@@ -86,6 +98,11 @@ way. The default matches \code{\link[=bbmake_pairwise_table]{bbmake_pairwise_tab
 comparison \strong{within each model}, not across the stacked rows. A
 message reports that count, for example
 \verb{Holm across 4 comparisons within each model}.
+
+\code{interaction = "pairwise"} (or \code{"revpairwise"}) contrasts the factors
+with each other instead of running a simple pairwise test. Factors
+named in \code{by} are held out of that interaction. \code{reverse} does not
+change an \code{interaction} value you supply.
 }
 \examples{
 set.seed(1)
@@ -112,6 +129,13 @@ bbmake_pairwise_sensitivity_table(
   by = c("Sex", "Diet"),
   cross.adjust = "bonferroni"
 )
+bbmake_pairwise_sensitivity_table(
+  mods,
+  ~ Stim | Diet * Sex,
+  by = "Sex",
+  interaction = "pairwise"
+) |>
+  bbnice_pairwise_table()
 }
 \seealso{
 \code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}} to print this tibble as a flextable,

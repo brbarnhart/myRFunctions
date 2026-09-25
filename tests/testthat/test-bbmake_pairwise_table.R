@@ -194,3 +194,152 @@ test_that("bbmake_pairwise_table output works with bbnice_pairwise_table and has
   expect_s3_class(ft, "flextable")
   expect_equal(ft$col_keys, c("Contrast", stat, "IRR", "95% CI", "p"))
 })
+
+# ==================================================================
+# Interaction contrasts
+# ==================================================================
+
+interaction_poisson <- function() {
+  set.seed(1)
+  dat <- expand.grid(
+    Sex = factor(c("F", "M")),
+    Stim = factor(c("A", "B", "C")),
+    Diet = factor(c("C", "H")),
+    id = 1:6
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  mod <- glm(y ~ Sex * Stim * Diet, data = dat, family = poisson)
+  emm <- emmeans(mod, ~ Stim | Diet * Sex, type = "response")
+  list(
+    mod = mod,
+    pw = contrast(emm, interaction = "pairwise", by = "Sex")
+  )
+}
+
+test_that("simple pairs() tables keep the existing column order", {
+  skip_if_not_installed("emmeans")
+
+  set.seed(1)
+  dat <- expand.grid(
+    Sex = factor(c("F", "M")),
+    Stim = factor(c("A", "B")),
+    id = 1:8
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  mod <- glm(y ~ Sex * Stim, data = dat, family = poisson)
+  pw <- pairs(emmeans(mod, ~ Stim | Sex, type = "response"), reverse = TRUE)
+
+  tab <- bbmake_pairwise_table(pw, cross.adjust = "none")
+  expect_equal(
+    names(tab),
+    c(
+      "Sex", "contrast", "df", "z.ratio", "IRR",
+      "lower.CL", "upper.CL", "SE", "p.value"
+    )
+  )
+})
+
+test_that("interaction contrasts keep one column per factor", {
+  skip_if_not_installed("emmeans")
+
+  built <- interaction_poisson()
+  expected <- as.data.frame(summary(
+    built$pw,
+    infer = c(TRUE, TRUE),
+    by = NULL,
+    adjust = "holm"
+  ))
+
+  expect_message(
+    tab <- bbmake_pairwise_table(built$pw),
+    "Holm across 6 comparisons"
+  )
+  expect_equal(
+    names(tab),
+    c(
+      "Sex", "Stim_pairwise", "Diet_pairwise", "df", "z.ratio", "IRR",
+      "lower.CL", "upper.CL", "SE", "p.value"
+    )
+  )
+  expect_false("contrast" %in% names(tab))
+  expect_false("null" %in% names(tab))
+  expect_equal(sort(tab$p.value), sort(expected$p.value))
+  expect_equal(as.character(unique(tab$Sex)), c("F", "M"))
+})
+
+test_that("interaction tables pipe into bbnice_pairwise_table", {
+  skip_if_not_installed("emmeans")
+  skip_if_not_installed("flextable")
+  skip_if_not_installed("rempsyc")
+
+  built <- interaction_poisson()
+  ft <- suppressMessages(bbmake_pairwise_table(built$pw)) |>
+    bbnice_pairwise_table()
+
+  expect_equal(
+    ft$col_keys,
+    c("Sex", "Stim Pairwise", "Diet Pairwise", "z", "IRR", "95% CI", "p")
+  )
+  spans <- as.numeric(ft$body$spans$columns[, match("Sex", ft$col_keys)])
+  expect_equal(spans, c(3, 0, 0, 3, 0, 0))
+})
+
+test_that("revpairwise interaction columns are kept", {
+  skip_if_not_installed("emmeans")
+
+  set.seed(1)
+  dat <- expand.grid(
+    Sex = factor(c("F", "M")),
+    Stim = factor(c("A", "B")),
+    Diet = factor(c("C", "H")),
+    id = 1:6
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  mod <- glm(y ~ Sex * Stim * Diet, data = dat, family = poisson)
+  pw <- emmeans(mod, ~ Stim | Diet * Sex, type = "response") |>
+    contrast(interaction = "revpairwise", by = "Sex")
+
+  tab <- bbmake_pairwise_table(pw, cross.adjust = "none")
+  expect_true(all(c("Sex", "Stim_revpairwise", "Diet_revpairwise") %in% names(tab)))
+  expect_false("contrast" %in% names(tab))
+})
+
+test_that("interaction contrasts do not attach Cohen's d", {
+  skip_if_not_installed("emmeans")
+
+  set.seed(1)
+  dat <- expand.grid(
+    Sex = factor(c("F", "M")),
+    Stim = factor(c("A", "B")),
+    Diet = factor(c("C", "H")),
+    id = 1:8
+  )
+  dat$y <- rnorm(nrow(dat))
+  mod <- lm(y ~ Sex * Stim * Diet, data = dat)
+  pw <- emmeans(mod, ~ Stim | Diet * Sex) |>
+    contrast(interaction = "pairwise", by = "Sex")
+
+  expect_no_warning(
+    tab <- bbmake_pairwise_table(pw, model = mod, cross.adjust = "none")
+  )
+  expect_true("Mean Difference" %in% names(tab))
+  expect_false("d" %in% names(tab))
+  expect_false("contrast" %in% names(tab))
+})
+
+test_that("a contrast grid without pairwise columns still requires contrast", {
+  skip_if_not_installed("emmeans")
+
+  set.seed(1)
+  dat <- expand.grid(
+    Sex = factor(c("F", "M")),
+    Stim = factor(c("A", "B")),
+    id = 1:8
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  mod <- glm(y ~ Sex * Stim, data = dat, family = poisson)
+  pw <- emmeans(mod, ~ Stim | Sex, type = "response") |>
+    contrast(interaction = "consec")
+
+  expect_error(bbmake_pairwise_table(pw), "contrast")
+})

@@ -44,6 +44,19 @@ gaussian_like <- function() {
   )
 }
 
+# Interaction contrast: one column per factor, raw emmeans effect name `ratio`
+interaction_like <- function() {
+  tibble(
+    Sex = factor(c("F", "F", "M", "M"), levels = c("F", "M")),
+    Stim_pairwise = factor(c("B / A", "C / A", "B / A", "C / A")),
+    Diet_pairwise = factor(rep("H / C", 4)),
+    Model = c("Full", "Reduced", "Full", "Reduced"),
+    ratio = c(1.234, 0.5, 2.5, 1),
+    SE = c(0.1, 0.2, 0.3, 0.4),
+    p.value = c(0.0004, 0.03, 0.2, 0.049)
+  )
+}
+
 # merge_v stores vertical spans in body$spans$columns (rows is colspan)
 col_spans <- function(ft, col) {
   j <- match(col, ft$col_keys)
@@ -194,6 +207,121 @@ test_that("stat headers are italic and the body uses theme_vanilla", {
   expect_match(html, "font-style:italic")
   expect_match(html, "font-weight:bold")
   expect_match(html, "Times New Roman")
+})
+
+# ==================================================================
+# Interaction contrasts (factor_pairwise columns, no `contrast`)
+# ==================================================================
+
+test_that("interaction columns are renamed and ratio becomes IRR", {
+  needs_nice()
+  tab <- interaction_like()
+  ft <- bbnice_pairwise_table(tab)
+
+  expect_equal(
+    ft$col_keys,
+    c("Sex", "Stim Pairwise", "Diet Pairwise", "Model", "IRR", "p")
+  )
+  expect_equal(ft$body$dataset$IRR, tab$ratio)
+  expect_equal(col_spans(ft, "Sex"), c(2, 0, 2, 0))
+  expect_equal(col_spans(ft, "Stim Pairwise"), rep(1, 4))
+  expect_equal(col_spans(ft, "Diet Pairwise"), rep(1, 4))
+})
+
+test_that("an underscore in the factor name is kept", {
+  needs_nice()
+  tab <- tibble(
+    Food_Cue_pairwise = c("B / A", "B / A"),
+    ratio = c(1.1, 1.2),
+    p.value = c(0.2, 0.3)
+  )
+  ft <- bbnice_pairwise_table(tab, merge = FALSE)
+  expect_equal(ft$col_keys, c("Food_Cue Pairwise", "IRR", "p"))
+})
+
+test_that("merge accepts the input pairwise name and the printed name", {
+  needs_nice()
+  tab <- interaction_like()
+  by_input <- bbnice_pairwise_table(tab, merge = "Diet_pairwise")
+  by_printed <- bbnice_pairwise_table(tab, merge = "Diet Pairwise")
+  expect_equal(col_spans(by_input, "Diet Pairwise"), c(4, 0, 0, 0))
+  expect_equal(col_spans(by_printed, "Diet Pairwise"), c(4, 0, 0, 0))
+  expect_equal(col_spans(by_input, "Sex"), rep(1, 4))
+})
+
+test_that("revpairwise is not labelled as pairwise", {
+  needs_nice()
+  tab <- tibble(
+    Sex = c("F", "M"),
+    Stim_revpairwise = c("A / B", "A / B"),
+    ratio = c(1.5, 0.8),
+    p.value = c(0.04, 0.2)
+  )
+  ft <- bbnice_pairwise_table(tab)
+  expect_equal(ft$col_keys, c("Sex", "Stim Revpairwise", "IRR", "p"))
+  expect_equal(col_spans(ft, "Sex"), rep(1, 2))
+})
+
+test_that("raw estimate and odds.ratio get the builder effect names", {
+  needs_nice()
+  est <- tibble(
+    Stim_pairwise = c("B / A", "C / A"),
+    estimate = c(1.25, 0.5),
+    p.value = c(0.01, 0.4)
+  )
+  expect_equal(
+    bbnice_pairwise_table(est, merge = FALSE)$col_keys,
+    c("Stim Pairwise", "Mean Difference", "p")
+  )
+
+  odds <- tibble(
+    Stim_pairwise = "B / A",
+    odds.ratio = 1.5,
+    p.value = 0.2
+  )
+  expect_equal(
+    bbnice_pairwise_table(odds, merge = FALSE)$col_keys,
+    c("Stim Pairwise", "Odds Ratio", "p")
+  )
+})
+
+test_that("renaming ratio onto an existing IRR column is an error", {
+  needs_nice()
+  tab <- tibble(
+    contrast = c("B / A", "B / A"),
+    ratio = c(1.1, 1.2),
+    IRR = c(1.1, 1.2),
+    p.value = c(0.2, 0.3)
+  )
+  expect_error(bbnice_pairwise_table(tab), "duplicate")
+})
+
+test_that("Contrast stays the merge anchor when a pairwise column is also present", {
+  needs_nice()
+  tab <- tibble(
+    Stim_pairwise = c("B / A", "B / A"),
+    Sex = c("F", "F"),
+    contrast = c("H / C", "H / C"),
+    ratio = c(1, 2),
+    p.value = c(0.2, 0.3)
+  )
+  ft <- bbnice_pairwise_table(tab)
+  expect_equal(
+    ft$col_keys,
+    c("Stim Pairwise", "Sex", "Contrast", "IRR", "p")
+  )
+  expect_equal(col_spans(ft, "Stim Pairwise"), c(2, 0))
+  expect_equal(col_spans(ft, "Sex"), c(2, 0))
+  expect_equal(col_spans(ft, "Contrast"), rep(1, 2))
+})
+
+test_that("a by-variable to the right of the pairwise columns is not merged", {
+  needs_nice()
+  tab <- interaction_like() |>
+    select(Stim_pairwise, Diet_pairwise, Sex, Model, ratio, SE, p.value)
+  ft <- bbnice_pairwise_table(tab)
+  expect_equal(ft$col_keys[[1]], "Stim Pairwise")
+  expect_equal(col_spans(ft, "Sex"), rep(1, 4))
 })
 
 # ==================================================================

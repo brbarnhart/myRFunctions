@@ -3,9 +3,13 @@
 #' By default every comparison in `pw` is one family and p-values are
 #' adjusted with Holm (`adjust = "none"`, `cross.adjust = "holm"`). A
 #' message reports the method and how many comparisons that covers, for
-#' example `Holm across 6 comparisons`.
+#' example `Holm across 6 comparisons`. `pairs(emm)` returns one
+#' `contrast` column. An interaction contrast such as
+#' `contrast(emm, interaction = "pairwise")` keeps one column per factor
+#' (`Stim_pairwise`, `Diet_pairwise`) plus the `by` variables.
 #'
-#' @param pw An `emmGrid` object (output from `pairs(emm)`)
+#' @param pw An `emmGrid` of contrasts: `pairs(emm)`, or an interaction
+#'   contrast such as `contrast(emm, interaction = "pairwise", by = "Sex")`.
 #' @param model Original fitted model (optional). Recovered from `pw` when
 #'   possible; used for Gaussian Cohen's d.
 #' @param adjust Within-`by`-group multiplicity adjustment passed to
@@ -19,14 +23,29 @@
 #'   Set `"none"` to skip it. This is *not* emmeans' own `cross.adjust`
 #'   argument, which only adjusts matching contrasts across by-groups.
 #'
-#' @return A tibble with grouping columns (when present), then `contrast`,
-#'   the test statistic (`z.ratio` or `t.ratio`), `df` (when present), the
-#'   effect (`IRR`, `Odds Ratio`, or `Mean Difference`), `SE`, `lower.CL`,
-#'   `upper.CL`, and `p.value`. Gaussian tables may also include Cohen's `d`.
-#'   Values are left at full precision; format them with
-#'   [bbnice_pairwise_table()].
+#' @return A tibble with grouping columns (when present), then `contrast`
+#'   or the interaction columns (`Stim_pairwise`, `Diet_pairwise`, and so
+#'   on), `df` (when present), the test statistic (`z.ratio` or `t.ratio`),
+#'   the effect (`IRR`, `Odds Ratio`, or `Mean Difference`), `lower.CL`,
+#'   `upper.CL`, `SE`, and `p.value`. Gaussian tables that have a
+#'   `contrast` column may also include Cohen's `d`. Values are left at
+#'   full precision; format them with [bbnice_pairwise_table()].
 #' @seealso [bbnice_pairwise_table()] to print this tibble as a flextable
 #' @export
+#' @examples
+#' set.seed(1)
+#' dat <- expand.grid(
+#'   Sex = factor(c("F", "M")),
+#'   Stim = factor(c("A", "B")),
+#'   Diet = factor(c("C", "H")),
+#'   id = 1:6
+#' )
+#' dat$y <- rpois(nrow(dat), lambda = 5)
+#' mod <- glm(y ~ Sex * Stim * Diet, data = dat, family = poisson)
+#' emmeans::emmeans(mod, ~ Stim | Diet * Sex, type = "response") |>
+#'   emmeans::contrast(interaction = "pairwise", by = "Sex") |>
+#'   bbmake_pairwise_table() |>
+#'   bbnice_pairwise_table()
 bbmake_pairwise_table <- function(
   pw,
   model = NULL,
@@ -45,7 +64,14 @@ bbmake_pairwise_table <- function(
 
   out <- .bb_tidy_pairwise_table(pw_summary, by_vars = by_vars)
 
-  if (!is.null(model) && "Mean Difference" %in% names(out)) {
+  # Interaction grids have no single contrast, so Cohen's d is left to
+  # the simple pairwise case. eff_size() on a contrast-of-contrasts can
+  # warn or return rows that do not line up with this table.
+  if (
+    !is.null(model) &&
+      "Mean Difference" %in% names(out) &&
+      "contrast" %in% names(out)
+  ) {
     cohen_d <- tryCatch(
       {
         d_tab <- emmeans::eff_size(
@@ -107,9 +133,18 @@ bbmake_pairwise_table <- function(
     pw_summary <- dplyr::rename(pw_summary, `Mean Difference` = "estimate")
   }
 
-  if (!"contrast" %in% names(pw_summary) || !"p.value" %in% names(pw_summary)) {
+  interaction_cols <- names(pw_summary)[
+    .bb_is_interaction_header(names(pw_summary))
+  ]
+  interaction_cols <- setdiff(interaction_cols, by_vars)
+  has_contrast <- "contrast" %in% names(pw_summary)
+  if (
+    !"p.value" %in% names(pw_summary) ||
+      (!has_contrast && !length(interaction_cols))
+  ) {
     stop(
-      "pairs() did not return contrast and p.value. Columns were: ",
+      "pairs() did not return p.value and either contrast or a column ",
+      "ending in _pairwise. Columns were: ",
       paste(names(pw_summary), collapse = ", "),
       call. = FALSE
     )
@@ -127,11 +162,17 @@ bbmake_pairwise_table <- function(
     )
   }
 
-  pw_summary[["contrast"]] <- stringr::str_trim(pw_summary[["contrast"]])
+  if (has_contrast) {
+    pw_summary[["contrast"]] <- stringr::str_trim(pw_summary[["contrast"]])
+  }
+  for (col in interaction_cols) {
+    pw_summary[[col]] <- stringr::str_trim(pw_summary[[col]])
+  }
 
   keep <- c(
     by_vars,
-    "contrast",
+    if (has_contrast) "contrast",
+    interaction_cols,
     "df",
     "z.ratio",
     "t.ratio",

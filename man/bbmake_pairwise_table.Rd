@@ -7,7 +7,8 @@
 bbmake_pairwise_table(pw, model = NULL, adjust = "none", cross.adjust = "holm")
 }
 \arguments{
-\item{pw}{An \code{emmGrid} object (output from \code{pairs(emm)})}
+\item{pw}{An \code{emmGrid} of contrasts: \code{pairs(emm)}, or an interaction
+contrast such as \code{contrast(emm, interaction = "pairwise", by = "Sex")}.}
 
 \item{model}{Original fitted model (optional). Recovered from \code{pw} when
 possible; used for Gaussian Cohen's d.}
@@ -25,18 +26,37 @@ Set \code{"none"} to skip it. This is \emph{not} emmeans' own \code{cross.adjust
 argument, which only adjusts matching contrasts across by-groups.}
 }
 \value{
-A tibble with grouping columns (when present), then \code{contrast},
-the test statistic (\code{z.ratio} or \code{t.ratio}), \code{df} (when present), the
-effect (\code{IRR}, \verb{Odds Ratio}, or \verb{Mean Difference}), \code{SE}, \code{lower.CL},
-\code{upper.CL}, and \code{p.value}. Gaussian tables may also include Cohen's \code{d}.
-Values are left at full precision; format them with
-\code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}}.
+A tibble with grouping columns (when present), then \code{contrast}
+or the interaction columns (\code{Stim_pairwise}, \code{Diet_pairwise}, and so
+on), \code{df} (when present), the test statistic (\code{z.ratio} or \code{t.ratio}),
+the effect (\code{IRR}, \verb{Odds Ratio}, or \verb{Mean Difference}), \code{lower.CL},
+\code{upper.CL}, \code{SE}, and \code{p.value}. Gaussian tables that have a
+\code{contrast} column may also include Cohen's \code{d}. Values are left at
+full precision; format them with \code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}}.
 }
 \description{
 By default every comparison in \code{pw} is one family and p-values are
 adjusted with Holm (\code{adjust = "none"}, \code{cross.adjust = "holm"}). A
 message reports the method and how many comparisons that covers, for
-example \verb{Holm across 6 comparisons}.
+example \verb{Holm across 6 comparisons}. \code{pairs(emm)} returns one
+\code{contrast} column. An interaction contrast such as
+\code{contrast(emm, interaction = "pairwise")} keeps one column per factor
+(\code{Stim_pairwise}, \code{Diet_pairwise}) plus the \code{by} variables.
+}
+\examples{
+set.seed(1)
+dat <- expand.grid(
+  Sex = factor(c("F", "M")),
+  Stim = factor(c("A", "B")),
+  Diet = factor(c("C", "H")),
+  id = 1:6
+)
+dat$y <- rpois(nrow(dat), lambda = 5)
+mod <- glm(y ~ Sex * Stim * Diet, data = dat, family = poisson)
+emmeans::emmeans(mod, ~ Stim | Diet * Sex, type = "response") |>
+  emmeans::contrast(interaction = "pairwise", by = "Sex") |>
+  bbmake_pairwise_table() |>
+  bbnice_pairwise_table()
 }
 \seealso{
 \code{\link[=bbnice_pairwise_table]{bbnice_pairwise_table()}} to print this tibble as a flextable
