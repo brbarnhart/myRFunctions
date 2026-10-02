@@ -4,7 +4,7 @@
 \alias{bbmake_lrt_sensitivity_table}
 \title{Sensitivity table of Type II LRTs across models}
 \usage{
-bbmake_lrt_sensitivity_table(models, digits = NULL)
+bbmake_lrt_sensitivity_table(models, digits = NULL, keep = NULL)
 }
 \arguments{
 \item{models}{A \strong{named} list of fitted models (e.g. \code{glmmTMB}, \code{glm},
@@ -14,12 +14,19 @@ Each model is passed to \code{\link[=bbmake_lrt_table]{bbmake_lrt_table()}}.}
 \item{digits}{Optional number of decimal places for \code{LRT} and \code{p}.
 \code{NULL} (the default) leaves full precision so \code{\link[rempsyc:nice_table]{rempsyc::nice_table()}}
 can format the paper table.}
+
+\item{keep}{Optional character vector of fixed-effect term labels, as in
+\code{\link[=bbmake_lrt_table]{bbmake_lrt_table()}}, for example \code{keep = "Block"}.
+Each model retains the requested terms it contains. \code{NULL} (the default)
+removes every term \code{drop1()} returns before the next test.}
 }
 \value{
 A tibble with columns \code{Term}, \code{Model}, \code{Df}, \code{LRT}, and \code{p}.
 Rows are ordered by the Type II term order of the first model, then
-by model list order. Attribute \code{note} records that the tests are
-Type II LRTs stacked across models.
+by model list order. Models that lack a term have no row for it.
+Attribute \code{note} records that the tests are Type II LRTs stacked
+across models and, when \code{keep} is set, that those terms are retained
+in models that contain them.
 }
 \description{
 Runs \code{\link[=bbmake_lrt_table]{bbmake_lrt_table()}} on each fitted model in a named list and
@@ -44,6 +51,12 @@ Fit and check diagnostics yourself, then pass the models in:
 )
 bbmake_lrt_sensitivity_table(mods)
 }\if{html}{\out{</div>}}
+
+\code{keep} is forwarded to \code{\link[=bbmake_lrt_table]{bbmake_lrt_table()}} for each model, but only the
+terms that model actually contains. A refit without the blocking factor
+stays in the table and is fit without that term. A message names the
+model on each per-model reminder, and names models that do not contain
+a requested term.
 }
 \examples{
 set.seed(1)
@@ -63,6 +76,13 @@ mods <- list(
   )
 )
 bbmake_lrt_sensitivity_table(mods)
+
+dat$Block <- factor(dat$id)
+mods_block <- list(
+  `With block` = glm(y ~ Block + Sex * Stim, data = dat, family = poisson),
+  `No block` = glm(y ~ Sex * Stim, data = dat, family = poisson)
+)
+bbmake_lrt_sensitivity_table(mods_block, keep = "Block")
 }
 \seealso{
 \code{\link[=bbmake_pairwise_sensitivity_table]{bbmake_pairwise_sensitivity_table()}} for planned contrasts

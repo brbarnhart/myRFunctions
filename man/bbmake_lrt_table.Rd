@@ -4,7 +4,7 @@
 \alias{bbmake_lrt_table}
 \title{Type II likelihood-ratio table}
 \usage{
-bbmake_lrt_table(model, digits = NULL)
+bbmake_lrt_table(model, digits = NULL, keep = NULL)
 }
 \arguments{
 \item{model}{A fitted model with a \code{drop1()} method. Typical classes:
@@ -14,10 +14,17 @@ interaction you want tested.}
 \item{digits}{Optional number of decimal places for \code{LRT} and \code{p}. \code{NULL}
 (the default) leaves full precision so \code{\link[rempsyc:nice_table]{rempsyc::nice_table()}} can
 format the paper table. Pass \code{3} to match a hand-rounded pipeline.}
+
+\item{keep}{Optional character vector of fixed-effect term labels to
+retain in every reduced model, for example \code{keep = "Block"} or
+\code{keep = c("Block", "Cohort")}. Labels must match the model terms
+(\code{Sex:Stim}, not \code{Sex * Stim}). \code{NULL} (the default) removes every
+term \code{drop1()} returns before the next test.}
 }
 \value{
 A tibble with columns \code{Term}, \code{Df}, \code{LRT}, and \code{p} (highest-order
-terms first). Attribute \code{note} records that the tests are Type II LRTs.
+terms first). Attribute \code{note} records that the tests are Type II LRTs
+and, when \code{keep} is set, which terms stay in every reduced model.
 }
 \description{
 Sequential \code{\link[stats:drop1]{stats::drop1()}} chi-squared tests from the highest-order
@@ -39,6 +46,14 @@ fitted internally; you do not need to \code{update()} them yourself.
 Random-effect terms, offsets, and \code{glmmTMB} zero-inflation / dispersion
 formulas are left untouched. Only fixed effects of the conditional model
 are tested.
+
+An additive fixed effect, such as a blocking factor, is not a margin of
+the interactions. The first \code{\link[stats:drop1]{stats::drop1()}} therefore tests it in the
+same step as the highest-order interaction, and every later test is fit
+without it. Name that term in \code{keep} to leave it in every reduced model.
+Its own likelihood-ratio test is still reported once, when marginality
+allows. A message names terms that stay in and additive terms that are
+removed before the lower-order tests. Silence it with \code{suppressMessages()}.
 }
 \examples{
 set.seed(1)
@@ -50,6 +65,10 @@ dat <- expand.grid(
 dat$y <- rpois(nrow(dat), lambda = 4)
 mod <- glm(y ~ Sex * Stim, data = dat, family = poisson)
 bbmake_lrt_table(mod)
+
+dat$Block <- factor(dat$id)
+mod_block <- glm(y ~ Block + Sex * Stim, data = dat, family = poisson)
+bbmake_lrt_table(mod_block, keep = "Block")
 
 \dontrun{
 mod <- glmmTMB::glmmTMB(

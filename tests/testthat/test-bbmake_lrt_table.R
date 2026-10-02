@@ -154,6 +154,229 @@ test_that("note attribute records Type II LRTs", {
 # glmmTMB (the actual use case)
 # ==================================================================
 
+# ==================================================================
+# keep: blocking / additive fixed effects stay in later LRTs
+# ==================================================================
+
+lrt_bind_manual <- function(models) {
+  pieces <- lapply(models, lrt_drop1_manual)
+  pieces <- pieces[vapply(pieces, nrow, integer(1)) > 0L]
+  dplyr::bind_rows(pieces) |>
+    dplyr::select(Term, Df, LRT, `Pr(>Chi)`) |>
+    dplyr::rename(p = `Pr(>Chi)`)
+}
+
+lrt_drop_update <- function(model, terms) {
+  f <- stats::as.formula(
+    paste("~ .", paste(paste0("-", terms), collapse = " ")),
+    env = environment(stats::formula(model))
+  )
+  cl <- stats::update(model, f, evaluate = FALSE)
+  eval(cl, envir = environment(stats::formula(model)))
+}
+
+capture_lrt <- function(expr) {
+  msgs <- character()
+  tab <- withCallingHandlers(
+    expr,
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+  list(tab = tab, message = paste(msgs, collapse = "\n"))
+}
+
+test_that("interaction formulas do not message about additive terms", {
+  dat <- setup_poisson()
+  expect_silent(bbmake_lrt_table(glm(
+    y ~ Sex * Stim, data = dat, family = poisson
+  )))
+  expect_silent(bbmake_lrt_table(glm(
+    y ~ Sex * Stim * Diet, data = dat, family = poisson
+  )))
+  expect_silent(bbmake_lrt_table(glm(
+    y ~ id + Sex + Stim, data = dat, family = poisson
+  )))
+})
+
+test_that("an additive term is dropped with the interaction unless kept", {
+  dat <- setup_poisson()
+  dat$Block <- dat$id
+  mod <- glm(y ~ Block + Sex * Stim, data = dat, family = poisson)
+
+  offered <- lrt_drop1_manual(mod)
+  reduced <- lrt_drop_update(mod, offered$Term)
+  expected <- lrt_bind_manual(list(mod, reduced))
+
+  out <- capture_lrt(bbmake_lrt_table(mod))
+
+  expect_equal(out$tab$Term, expected$Term)
+  expect_equal(out$tab$Df, as.integer(expected$Df))
+  expect_equal(out$tab$LRT, expected$LRT)
+  expect_equal(out$tab$p, expected$p)
+  expect_match(
+    out$message,
+    "`Block` is removed together with `Sex:Stim`",
+    fixed = TRUE
+  )
+  expect_match(out$message, "Later LRTs are fit without `Block`", fixed = TRUE)
+  expect_match(out$message, 'Pass keep = "Block"', fixed = TRUE)
+  expect_false(grepl("retained", attr(out$tab, "note"), fixed = TRUE))
+})
+
+test_that("keep retains a blocking factor in later LRTs and says so", {
+  dat <- setup_poisson()
+  dat$Block <- dat$id
+  # Drop a Sex x Block corner so the block is not orthogonal to Sex.
+  dat <- dat[!(dat$Block %in% c("1", "2") & dat$Sex == "F"), ]
+  mod <- glm(y ~ Block + Sex * Stim, data = dat, family = poisson)
+
+  offered <- lrt_drop1_manual(mod)
+  drop_now <- setdiff(offered$Term, "Block")
+  reduced <- lrt_drop_update(mod, drop_now)
+  offered_reduced <- lrt_drop1_manual(reduced)
+  offered_reduced <- offered_reduced[offered_reduced$Term != "Block", ]
+  expected <- dplyr::bind_rows(
+    dplyr::select(offered, Term, Df, LRT, `Pr(>Chi)`),
+    dplyr::select(offered_reduced, Term, Df, LRT, `Pr(>Chi)`)
+  ) |>
+    dplyr::rename(p = `Pr(>Chi)`)
+
+  dropped <- capture_lrt(bbmake_lrt_table(mod))
+  out <- capture_lrt(bbmake_lrt_table(mod, keep = "Block"))
+
+  expect_equal(out$tab$Term, expected$Term)
+  expect_equal(out$tab$Df, as.integer(expected$Df))
+  expect_equal(out$tab$LRT, expected$LRT)
+  expect_equal(out$tab$p, expected$p)
+  expect_false(any(duplicated(out$tab$Term)))
+  expect_equal(
+    out$tab$LRT[out$tab$Term == "Sex:Stim"],
+    dropped$tab$LRT[dropped$tab$Term == "Sex:Stim"]
+  )
+  expect_false(isTRUE(all.equal(
+    out$tab$LRT[out$tab$Term == "Sex"],
+    dropped$tab$LRT[dropped$tab$Term == "Sex"]
+  )))
+  expect_match(out$message, "`Block` stays in every reduced model", fixed = TRUE)
+  expect_match(out$message, "Later LRTs are fit with `Block`", fixed = TRUE)
+  expect_false(grepl("is removed", out$message, fixed = TRUE))
+  expect_match(attr(out$tab, "note"), "Block retained in every reduced model", fixed = TRUE)
+  expect_match(attr(out$tab, "note"), "Type II", fixed = TRUE)
+})
+
+test_that("keep can retain one additive term while another is still dropped", {
+  dat <- setup_poisson()
+  dat$Block <- dat$id
+  dat$Cohort <- dat$Diet
+  dat <- dat[!(dat$Block %in% c("1", "2") & dat$Sex == "F"), ]
+  mod <- glm(y ~ Block + Cohort + Sex * Stim, data = dat, family = poisson)
+
+  offered <- lrt_drop1_manual(mod)
+  reduced <- lrt_drop_update(mod, setdiff(offered$Term, "Block"))
+  offered_reduced <- lrt_drop1_manual(reduced)
+  offered_reduced <- offered_reduced[offered_reduced$Term != "Block", ]
+  expected <- dplyr::bind_rows(
+    dplyr::select(offered, Term, Df, LRT, `Pr(>Chi)`),
+    dplyr::select(offered_reduced, Term, Df, LRT, `Pr(>Chi)`)
+  ) |>
+    dplyr::rename(p = `Pr(>Chi)`)
+
+  out <- capture_lrt(bbmake_lrt_table(mod, keep = "Block"))
+
+  expect_equal(out$tab$Term, expected$Term)
+  expect_equal(out$tab$LRT, expected$LRT)
+  expect_match(out$message, "`Block` stays in every reduced model", fixed = TRUE)
+  expect_match(
+    out$message,
+    "`Cohort` is removed together with `Sex:Stim`",
+    fixed = TRUE
+  )
+  expect_match(out$message, "Add `Cohort` to `keep`", fixed = TRUE)
+  expect_match(out$message, "Later LRTs are fit without `Cohort`", fixed = TRUE)
+})
+
+test_that("several kept terms stay in and are not described as removed", {
+  dat <- setup_poisson()
+  dat$Block <- dat$id
+  dat$Cohort <- dat$Diet
+  dat <- dat[!(dat$Block %in% c("1", "2") & dat$Sex == "F"), ]
+  mod <- glm(y ~ Block + Cohort + Sex * Stim, data = dat, family = poisson)
+
+  offered <- lrt_drop1_manual(mod)
+  reduced <- lrt_drop_update(mod, setdiff(offered$Term, c("Block", "Cohort")))
+  offered_reduced <- lrt_drop1_manual(reduced)
+  offered_reduced <- offered_reduced[
+    !offered_reduced$Term %in% c("Block", "Cohort"),
+  ]
+  expected <- dplyr::bind_rows(
+    dplyr::select(offered, Term, Df, LRT, `Pr(>Chi)`),
+    dplyr::select(offered_reduced, Term, Df, LRT, `Pr(>Chi)`)
+  ) |>
+    dplyr::rename(p = `Pr(>Chi)`)
+
+  out <- capture_lrt(bbmake_lrt_table(mod, keep = c("Block", "Cohort")))
+
+  expect_equal(out$tab$Term, expected$Term)
+  expect_equal(out$tab$LRT, expected$LRT)
+  expect_false(any(duplicated(out$tab$Term)))
+  expect_match(
+    out$message,
+    "`Block` and `Cohort` stay in every reduced model",
+    fixed = TRUE
+  )
+  expect_match(
+    out$message,
+    "Later LRTs are fit with `Block` and `Cohort`",
+    fixed = TRUE
+  )
+  expect_false(grepl("removed", out$message, fixed = TRUE))
+  expect_match(
+    attr(out$tab, "note"),
+    "Block, Cohort retained in every reduced model",
+    fixed = TRUE
+  )
+})
+
+test_that("keeping a last-stage main effect does not repeat or change tests", {
+  dat <- setup_poisson()
+  mod <- glm(y ~ Sex * Stim, data = dat, family = poisson)
+  base <- bbmake_lrt_table(mod)
+  out <- capture_lrt(bbmake_lrt_table(mod, keep = "Sex"))
+
+  expect_equal(out$tab$Term, base$Term)
+  expect_equal(out$tab$Df, base$Df)
+  expect_equal(out$tab$LRT, base$LRT)
+  expect_equal(out$tab$p, base$p)
+  expect_match(out$message, "`Sex` stays in every reduced model", fixed = TRUE)
+  expect_match(attr(out$tab, "note"), "Sex retained in every reduced model", fixed = TRUE)
+})
+
+test_that("keeping an interaction leaves its margins untested", {
+  dat <- setup_poisson()
+  mod <- glm(y ~ Sex * Stim, data = dat, family = poisson)
+  manual <- lrt_drop1_manual(mod)
+  out <- capture_lrt(bbmake_lrt_table(mod, keep = "Sex:Stim"))
+
+  expect_equal(out$tab$Term, manual$Term)
+  expect_equal(out$tab$LRT, manual$LRT)
+  expect_false(any(c("Sex", "Stim") %in% out$tab$Term))
+  expect_match(out$message, "`Sex:Stim` stays in every reduced model", fixed = TRUE)
+})
+
+test_that("unknown or invalid keep fails before fitting reduced models", {
+  dat <- setup_poisson()
+  mod <- glm(y ~ Sex * Stim, data = dat, family = poisson)
+
+  expect_error(bbmake_lrt_table(mod, keep = "Block"), "not in the model")
+  expect_error(bbmake_lrt_table(mod, keep = "Block"), "Sex:Stim", fixed = TRUE)
+  expect_error(bbmake_lrt_table(mod, keep = c("Sex", "Block")), "Block")
+  expect_error(bbmake_lrt_table(mod, keep = 1), "`keep` must be")
+  expect_error(bbmake_lrt_table(mod, keep = NA_character_), "`keep` must be")
+  expect_error(bbmake_lrt_table(mod, keep = ""), "`keep` must be")
+})
+
 test_that("glmmTMB two-way with random intercept matches manual pipeline", {
   suppressWarnings(skip_if_not_installed("glmmTMB"))
 

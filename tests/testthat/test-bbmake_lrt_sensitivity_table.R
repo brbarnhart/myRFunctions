@@ -121,6 +121,146 @@ test_that("invalid inputs error clearly", {
   )
 })
 
+# ==================================================================
+# keep: forward a blocking term only where the model contains it
+# ==================================================================
+
+capture_sensitivity <- function(expr) {
+  msgs <- character()
+  tab <- withCallingHandlers(
+    expr,
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+  list(tab = tab, message = paste(msgs, collapse = "\n"))
+}
+
+setup_block_sensitivity <- function() {
+  set.seed(1)
+  dat <- expand.grid(
+    Sex  = factor(c("F", "M")),
+    Stim = factor(c("A", "B")),
+    Diet = factor(c("C", "H")),
+    id   = factor(1:6)
+  )
+  dat$y <- rpois(nrow(dat), lambda = 5)
+  dat$Block <- dat$id
+  dat <- dat[!(dat$Block %in% c("1", "2") & dat$Sex == "F"), ]
+  list(
+    both = glm(
+      y ~ Block + Diet + Sex * Stim, data = dat, family = poisson
+    ),
+    block_only = glm(
+      y ~ Block + Sex * Stim, data = dat, family = poisson
+    ),
+    neither = glm(y ~ Sex * Stim, data = dat, family = poisson)
+  )
+}
+
+lrt_rows_for <- function(tab, model) {
+  rows <- tab[as.character(tab$Model) == model, c("Term", "Df", "LRT", "p")]
+  rows$Term <- as.character(rows$Term)
+  rows[order(rows$Term), ]
+}
+
+expect_same_lrt <- function(got, expected) {
+  expected <- expected[order(expected$Term), ]
+  expect_equal(got$Term, expected$Term)
+  expect_equal(got$Df, expected$Df)
+  expect_equal(got$LRT, expected$LRT)
+  expect_equal(got$p, expected$p)
+}
+
+test_that("models without an additive term stay quiet", {
+  s <- setup_lrt_sensitivity_models()
+  mods <- list(Full = s$Full, Reduced = s$Reduced)
+  expect_silent(bbmake_lrt_sensitivity_table(mods))
+})
+
+test_that("keep is applied only in models that contain the term", {
+  s <- setup_block_sensitivity()
+  mods <- list(
+    Both = s$both,
+    `Block only` = s$block_only,
+    Neither = s$neither
+  )
+  out <- capture_sensitivity(
+    bbmake_lrt_sensitivity_table(mods, keep = c("Block", "Diet"))
+  )
+
+  both <- suppressMessages(bbmake_lrt_table(s$both, keep = c("Block", "Diet")))
+  block_only <- suppressMessages(bbmake_lrt_table(s$block_only, keep = "Block"))
+  block_only_dropped <- suppressMessages(bbmake_lrt_table(s$block_only))
+  neither <- bbmake_lrt_table(s$neither)
+
+  expect_same_lrt(lrt_rows_for(out$tab, "Both"), both)
+  expect_same_lrt(lrt_rows_for(out$tab, "Block only"), block_only)
+  expect_same_lrt(lrt_rows_for(out$tab, "Neither"), neither)
+  expect_false(isTRUE(all.equal(
+    block_only$LRT[block_only$Term == "Sex"],
+    block_only_dropped$LRT[block_only_dropped$Term == "Sex"]
+  )))
+  expect_false("Diet" %in% as.character(out$tab$Term[out$tab$Model == "Block only"]))
+  expect_false(any(c("Block", "Diet") %in% as.character(
+    out$tab$Term[out$tab$Model == "Neither"]
+  )))
+  expect_equal(
+    as.character(out$tab$Model[out$tab$Term == "Diet"]),
+    "Both"
+  )
+
+  expect_match(out$message, "`Both`:", fixed = TRUE)
+  expect_match(out$message, "`Block` and `Diet` stay", fixed = TRUE)
+  expect_match(out$message, "`Block only`:", fixed = TRUE)
+  expect_match(
+    out$message,
+    "`Neither` does not contain `Block`, so that model is fit without it.",
+    fixed = TRUE
+  )
+  expect_match(
+    out$message,
+    "`Block only` and `Neither` do not contain `Diet`, so those models are fit without it.",
+    fixed = TRUE
+  )
+  expect_match(
+    attr(out$tab, "note"),
+    "Block, Diet retained in models that contain them",
+    fixed = TRUE
+  )
+  expect_match(attr(out$tab, "note"), "stacked", fixed = TRUE)
+})
+
+test_that("omitting keep still names the model that drops a blocking factor", {
+  s <- setup_block_sensitivity()
+  out <- capture_sensitivity(
+    bbmake_lrt_sensitivity_table(list(`Block only` = s$block_only))
+  )
+
+  expect_match(out$message, "`Block only`:", fixed = TRUE)
+  expect_match(out$message, "Later LRTs are fit without `Block`", fixed = TRUE)
+  expect_match(out$message, 'Pass keep = "Block"', fixed = TRUE)
+  expect_false(grepl("retained", attr(out$tab, "note"), fixed = TRUE))
+})
+
+test_that("invalid keep fails before the models are stacked", {
+  s <- setup_block_sensitivity()
+  mods <- list(Both = s$both, Neither = s$neither)
+  expect_error(
+    bbmake_lrt_sensitivity_table(mods, keep = "Cohort"),
+    "not in any model"
+  )
+  expect_error(
+    bbmake_lrt_sensitivity_table(mods, keep = c("Block", "Cohort")),
+    "Cohort"
+  )
+  expect_error(
+    bbmake_lrt_sensitivity_table(mods, keep = 1),
+    "`keep` must be"
+  )
+})
+
 test_that("note attribute records stacked Type II LRTs", {
   s <- setup_lrt_sensitivity_models()
   mods <- list(Full = s$Full, Reduced = s$Reduced)
