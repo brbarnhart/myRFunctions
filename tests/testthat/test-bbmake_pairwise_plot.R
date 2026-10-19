@@ -148,23 +148,56 @@ annotation_text_size <- function(p) {
   sizes[[1]]
 }
 
-test_that("effect annotation text size follows the plot theme", {
+axis_text_size_mm <- function(p) {
+  built <- ggplot2::ggplot_build(p)
+  ggplot2::calc_element("axis.text", built$plot@theme)$size / ggplot2::.pt
+}
+
+bracket_label_size <- function(p) {
+  built <- ggplot2::ggplot_build(p)
+  sizes <- vapply(built$data, function(d) {
+    if ("label.size" %in% names(d) && "label" %in% names(d)) {
+      as.numeric(d$label.size[[1]])
+    } else {
+      NA_real_
+    }
+  }, numeric(1))
+  sizes <- sizes[!is.na(sizes)]
+  if (length(sizes) == 0L) {
+    return(NA_real_)
+  }
+  sizes[[1]]
+}
+
+test_that("effect annotation and stars match axis tick labels", {
   skip_if_not_installed("lmerTest")
   skip_if_not_installed("emmeans")
   skip_if_not_installed("ggpubr")
   skip_if(
     utils::packageVersion("ggplot2") < "4.0.0",
-    "theme-inherited geom text size requires ggplot2 >= 4.0.0"
+    "tick-label geom text size requires ggplot2 >= 4.0.0"
   )
 
   s <- setup_plot_data()
   p <- bbmake_pairwise_plot(s$emm, pw = s$pw, model = s$mod)
 
-  size_small <- annotation_text_size(p + ggplot2::theme_grey(base_size = 11))
-  size_large <- annotation_text_size(p + ggplot2::theme_grey(base_size = 22))
+  small <- p + ggplot2::theme_grey(base_size = 11)
+  large <- p + ggplot2::theme_grey(base_size = 22)
+  ticks <- p +
+    ggplot2::theme_grey(base_size = 16) +
+    ggplot2::theme(axis.text = ggplot2::element_text(size = 9))
+
+  size_small <- annotation_text_size(small)
+  size_large <- annotation_text_size(large)
 
   expect_false(is.na(size_small))
+  expect_equal(size_small, axis_text_size_mm(small), tolerance = 1e-6)
+  expect_equal(size_large, axis_text_size_mm(large), tolerance = 1e-6)
   expect_equal(size_large, size_small * 2, tolerance = 1e-6)
+  expect_equal(bracket_label_size(small), size_small, tolerance = 1e-6)
+  expect_equal(bracket_label_size(large), size_large, tolerance = 1e-6)
+  expect_equal(annotation_text_size(ticks) * ggplot2::.pt, 9, tolerance = 1e-6)
+  expect_equal(bracket_label_size(ticks) * ggplot2::.pt, 9, tolerance = 1e-6)
 })
 
 test_that("bbmake_pairwise_plot y_expand defaults and overrides", {

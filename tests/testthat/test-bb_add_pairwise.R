@@ -196,6 +196,54 @@ test_that("bb_add_pairwise x-axis mode spans factor levels", {
   expect_gt(nrow(sig), 1L)
 })
 
+test_that("bracket labels match tick labels unless size is set", {
+  skip_if_not_installed("ggplot2")
+  skip_if_not_installed("ggpubr")
+  skip_if(
+    utils::packageVersion("ggplot2") < "4.0.0",
+    "tick-label geom text size requires ggplot2 >= 4.0.0"
+  )
+
+  dat <- data.frame(
+    x = factor(c("A", "B", "A", "B")),
+    y = c(1, 2, 1.2, 2.4)
+  )
+  pw <- data.frame(contrast = "A - B", p.value = 0.01)
+  p <- ggplot2::ggplot(dat, ggplot2::aes(x, y)) +
+    ggplot2::geom_point() +
+    bb_add_pairwise(pw)
+
+  label_mm <- function(plot) {
+    built <- ggplot2::ggplot_build(plot)
+    built$data[[length(built$data)]]$label.size[[1]]
+  }
+
+  small <- p + ggplot2::theme_grey(base_size = 11)
+  large <- p + ggplot2::theme_grey(base_size = 22)
+  expect_equal(label_mm(large), label_mm(small) * 2, tolerance = 1e-6)
+  expect_equal(label_mm(small) * ggplot2::.pt, 8.8, tolerance = 1e-6)
+
+  ticks <- p +
+    ggplot2::theme_grey(base_size = 16) +
+    ggplot2::theme(axis.text = ggplot2::element_text(size = 9))
+  expect_equal(label_mm(ticks) * ggplot2::.pt, 9, tolerance = 1e-6)
+
+  void <- p + ggplot2::theme_void(base_size = 20)
+  expect_equal(label_mm(void) * ggplot2::.pt, 16, tolerance = 1e-6)
+
+  fixed_size <- ggplot2::ggplot(dat, ggplot2::aes(x, y)) +
+    ggplot2::geom_point() +
+    bb_add_pairwise(pw, size = 5) +
+    ggplot2::theme_grey(base_size = 22)
+  expect_equal(label_mm(fixed_size), 5)
+
+  fixed_label <- ggplot2::ggplot(dat, ggplot2::aes(x, y)) +
+    ggplot2::geom_point() +
+    bb_add_pairwise(pw, label.size = 4) +
+    ggplot2::theme_grey(base_size = 22)
+  expect_equal(label_mm(fixed_label), 4)
+})
+
 test_that("bb_add_pairwise errors when contrast groups cannot be mapped", {
   skip_if_not_installed("emmeans")
   skip_if_not_installed("ggplot2")

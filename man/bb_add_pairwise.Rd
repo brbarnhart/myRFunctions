@@ -56,7 +56,9 @@ the same x position. Default \code{0.08}.}
 
 \item{model}{Optional fitted model forwarded to \code{\link[=bb_pairwise_labels]{bb_pairwise_labels()}}.}
 
-\item{...}{Additional arguments passed to \code{\link[ggpubr:stat_pvalue_manual]{ggpubr::stat_pvalue_manual()}}.}
+\item{...}{Additional arguments passed to \code{\link[ggpubr:stat_pvalue_manual]{ggpubr::stat_pvalue_manual()}}.
+\code{size} and \code{label.size} fix the bracket label size in millimetres.
+Omit them to match the axis tick labels.}
 }
 \value{
 An object that can be added to a ggplot with \code{+}.
@@ -77,6 +79,12 @@ Bracket height is \code{y.fun} of the plotted \code{y} values in each cell (defa
 have \code{ymin} / \code{ymax} (as from \code{\link[=bb_emm_df]{bb_emm_df()}}), the CI upper bound is used
 so brackets clear error bars. Use \code{y.fun = mean} if the plot shows bars
 of means without points.
+
+On ggplot2 4.0 or newer, the bracket labels (\code{*}, \code{ns}, and so on) match
+the axis tick labels. \code{theme_*(base_size)} and
+\code{theme(axis.text = element_text(size = ...))} both set that size.
+Pass \code{size} or \code{label.size} to override it. Those arguments are in
+millimetres, the unit \code{\link[ggpubr:stat_pvalue_manual]{ggpubr::stat_pvalue_manual()}} uses for labels.
 }
 \examples{
 \dontrun{

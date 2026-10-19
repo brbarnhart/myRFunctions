@@ -160,9 +160,9 @@ bbmake_pairwise_plot(
   )
 ```
 
-## Annotation text size follows the theme
+## Annotation and significance text match the tick labels
 
-Look for: the top-right effect label scaling with `base_size`, along with axis text. The first two use complete themes; the third only changes geom text via `theme(geom)`.
+Look for: the top-right effect label and the stars (`*` / `ns`) matching the axis tick labels. Both grow with `base_size`. The third plot sets only `axis.text`; the effect label and the stars should match those larger ticks, while the axis titles stay at the theme's base size.
 
 ```{r pairwise-theme-11, fig.height=4.8}
 p_ann <- bbmake_pairwise_plot(emm_sg, pw = pw_sg, model = mod_sg)
@@ -186,18 +186,19 @@ p_ann +
   )
 ```
 
-```{r pairwise-theme-geom, fig.height=4.8}
+```{r pairwise-theme-axis, fig.height=4.8}
 p_ann +
-  theme(geom = element_geom(fontsize = 14)) +
+  theme_grey(base_size = 11) +
+  theme(axis.text = element_text(size = 16)) +
   labs(
-    title = "theme(geom = element_geom(fontsize = 14))",
-    subtitle = "Axis text stays at the default; only geom text (the annotation) should grow",
+    title = "axis.text size 16",
+    subtitle = "Effect label and stars match the ticks; titles stay at base_size 11",
     x = "Stimulation",
     y = "Response"
   )
 ```
 
-`theme(text = element_text(size = ...))` does **not** change `geom_text()` size. That is ggplot2's split between theme text and geom text.
+`theme(text = element_text(size = ...))` rescales the tick labels, because they are `rel(0.8)` of the base text. The effect label and the stars follow the ticks.
 
 ## Facet grid (two by-variables)
 

@@ -93,9 +93,8 @@ and \code{expansion(mult = c(0.02, 0.18))} otherwise. A numeric of length
 \code{\link[ggplot2:expansion]{ggplot2::expansion()}}.}
 
 \item{hjust, vjust}{Position adjustments for the effect-size annotation
-(placed at \code{x = Inf}, \code{y = Inf}). Text size is not hardcoded: it
-follows the plot theme (ggplot2 4.0+: \code{theme_*(base_size)} or
-\code{theme(geom = element_geom(fontsize = ...))}).}
+(placed at \code{x = Inf}, \code{y = Inf}). The label is the same size as the
+axis tick labels. See the description above.}
 
 \item{point_size}{Size passed to \code{\link[ggplot2:geom_point]{ggplot2::geom_point()}} (\code{size}).}
 
@@ -134,6 +133,13 @@ P-values default to Holm across every pairwise test
 
 For custom layouts, call the helpers yourself and add intervals /
 brackets with \code{\link[=bb_add_errorbar]{bb_add_errorbar()}} and \code{\link[=bb_add_pairwise]{bb_add_pairwise()}}.
+
+On ggplot2 4.0 or newer, the effect-size annotation and the
+significance labels (\code{*}, \code{ns}, and so on) are the same size as the
+axis tick labels. \code{theme_bw(base_size = 18)} scales them with the
+ticks, and so does \code{theme(axis.text = element_text(size = 9))}.
+In the built-in complete themes the tick labels are 0.8 times
+\code{base_size}.
 }
 \examples{
 \dontrun{

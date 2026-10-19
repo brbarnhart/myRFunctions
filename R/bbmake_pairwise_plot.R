@@ -13,6 +13,13 @@
 #' For custom layouts, call the helpers yourself and add intervals /
 #' brackets with [bb_add_errorbar()] and [bb_add_pairwise()].
 #'
+#' On ggplot2 4.0 or newer, the effect-size annotation and the
+#' significance labels (`*`, `ns`, and so on) are the same size as the
+#' axis tick labels. `theme_bw(base_size = 18)` scales them with the
+#' ticks, and so does `theme(axis.text = element_text(size = 9))`.
+#' In the built-in complete themes the tick labels are 0.8 times
+#' `base_size`.
+#'
 #' @param emm An `emmGrid` from [emmeans::emmeans()].
 #' @param x Bare name or string of the x-axis factor. Default: the sole
 #'   primary variable on `emm` (error if ambiguous).
@@ -58,9 +65,8 @@
 #'   (`expansion(mult = y_expand)`). Otherwise pass the result of
 #'   [ggplot2::expansion()].
 #' @param hjust,vjust Position adjustments for the effect-size annotation
-#'   (placed at `x = Inf`, `y = Inf`). Text size is not hardcoded: it
-#'   follows the plot theme (ggplot2 4.0+: `theme_*(base_size)` or
-#'   `theme(geom = element_geom(fontsize = ...))`).
+#'   (placed at `x = Inf`, `y = Inf`). The label is the same size as the
+#'   axis tick labels. See the description above.
 #' @param point_size Size passed to [ggplot2::geom_point()] (`size`).
 #' @param linewidth Line width for error bars and connecting lines.
 #' @param errorbar_width Horizontal width of the T-caps on
@@ -247,14 +253,7 @@ bbmake_pairwise_plot <- function(
     if (nrow(sig) > 0L) {
       ann <- .bb_effect_annotation_df(sig, sig_by)
       if (nrow(ann) > 0L && any(nzchar(ann$effect_annotation))) {
-        p <- p +
-          ggplot2::geom_text(
-            data = ann,
-            ggplot2::aes(label = .data$effect_annotation),
-            x = Inf, y = Inf,
-            hjust = hjust, vjust = vjust,
-            inherit.aes = FALSE
-          )
+        p <- p + .bb_effect_annotation_layer(ann, hjust = hjust, vjust = vjust)
       }
     }
   }

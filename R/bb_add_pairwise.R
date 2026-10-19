@@ -15,6 +15,12 @@
 #' so brackets clear error bars. Use `y.fun = mean` if the plot shows bars
 #' of means without points.
 #'
+#' On ggplot2 4.0 or newer, the bracket labels (`*`, `ns`, and so on) match
+#' the axis tick labels. `theme_*(base_size)` and
+#' `theme(axis.text = element_text(size = ...))` both set that size.
+#' Pass `size` or `label.size` to override it. Those arguments are in
+#' millimetres, the unit [ggpubr::stat_pvalue_manual()] uses for labels.
+#'
 #' @param pw An `emmGrid` of pairwise contrasts (e.g. `pairs(emm)`), or a
 #'   data frame with `contrast`, `p.value`, and any by-variable columns.
 #' @param data Optional data used to compute y-positions and x / group
@@ -39,6 +45,8 @@
 #' @param label Column used as the bracket label. Default `"p.signif"`.
 #' @param model Optional fitted model forwarded to [bb_pairwise_labels()].
 #' @param ... Additional arguments passed to [ggpubr::stat_pvalue_manual()].
+#'   `size` and `label.size` fix the bracket label size in millimetres.
+#'   Omit them to match the axis tick labels.
 #'
 #' @return An object that can be added to a ggplot with `+`.
 #' @export
@@ -123,7 +131,11 @@ ggplot_add.bb_pairwise_layer <- function(object, plot, ...) {
     object$extra
   )
 
-  plot + do.call(ggpubr::stat_pvalue_manual, layer_args)
+  plot <- plot + do.call(ggpubr::stat_pvalue_manual, layer_args)
+  if (!any(c("size", "label.size") %in% names(object$extra))) {
+    plot <- .bb_use_ticklabel_brackets(plot)
+  }
+  plot
 }
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
